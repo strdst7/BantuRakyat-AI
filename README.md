@@ -23,6 +23,41 @@ Built with **Next.js**, **TypeScript**, and modern web technologies.
 It aims to simplify the process of finding relevant aid through an intuitive, fast, and user-friendly experience.
 
 ---
+🏆 Built for the 🇲🇾 KRACKED DEVS × PASARAPI Mini Bounty
+
+BantuRakyat-AI was proudly built as part of the KRACKED DEVS × PASARAPI Mini Bounty, a challenge encouraging Malaysian developers to create practical AI-powered applications using real-world data from PasarAPI.
+
+🎯 About the Challenge
+
+The bounty challenged developers to:
+
+* 🇲🇾 Build a working web application
+* 🤖 Leverage AI coding tools such as Claude, Cursor, Codex, Bolt, v0, Lovable, Replit Agent, or similar
+* 🔌 Integrate at least one API from PasarAPI
+* 🚀 Ship something practical, creative, and useful for Malaysians
+
+💡 Our Submission
+
+BantuRakyat-AI combines modern AI experiences with public assistance discovery, making it easier for Malaysians to explore government aid programmes and eligibility through an intuitive interface.
+
+Built with:
+
+* ⚡ Next.js
+* 📘 TypeScript
+* 🤖 AI-assisted development
+* 🔗 PasarAPI integration
+
+⸻
+
+🙌 Special Thanks
+
+A huge thank you to the teams behind KRACKED DEVS Malaysia and PasarAPI for organising this community initiative and encouraging Malaysian developers to build impactful AI-powered applications.
+
+If you’re interested in the challenge or future community events:
+
+* 🌐 KRACKED DEVS Bounty: https://krackeddevs.com/code/bounty/pasarapi-bounty
+* 🔌 PasarAPI: https://pasarapi.xyz/
+
 
 # 🚀 Quick Start
 

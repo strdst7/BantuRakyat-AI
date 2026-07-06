@@ -1,13 +1,94 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --bg-obsidian: #050505;
+    --card-dark: #0d0d0f;
+    --card-border: #1f1f23;
+    --neon-lime: #ccff00;
+    --text-muted: #888891;
+  }
+
   body {
+    background-color: var(--bg-obsidian);
+    color: #ffffff;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 }
 
-/* Hide scrollbar for clean navigation bars */
+/* Custom glowing effects */
+.neon-text {
+  color: #ccff00;
+  text-shadow: 0 0 25px rgba(204, 255, 0, 0.5);
+}
+
+.neon-border {
+  border-color: #1f1f24;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.neon-border:hover {
+  border-color: #ccff00;
+  box-shadow: 0 0 25px rgba(204, 255, 0, 0.18);
+  transform: translateY(-2px);
+}
+
+.neon-btn {
+  background-color: #ccff00;
+  color: #050505;
+  font-weight: 800;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.neon-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transition: 0.5s;
+}
+
+.neon-btn:hover::after {
+  left: 100%;
+}
+
+.neon-btn:hover {
+  background-color: #dbff33;
+  box-shadow: 0 0 30px rgba(204, 255, 0, 0.6);
+  transform: translateY(-2px) scale(1.01);
+}
+
+/* Gleec / Immersive Garden style Drag Cursor */
+.custom-cursor {
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.2s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Interactive ticker animation */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: 200%;
+  animation: marquee 25s linear infinite;
+}
+
+/* Hide scrollbar */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }

@@ -42,4 +42,4 @@ License
 
 ## Live Preview
 
-- Preview URL: https://3000-igpyas3f916udy9atw2dz.e2b.app/ (checked: HTTP 502 — may be temporarily unavailable)
+- Preview URL: https://3000-igpyas3f916udy9atw2dz.e2b.app/

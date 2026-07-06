@@ -24,6 +24,7 @@ export const aidPrograms = pgTable('aid_programs', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+<<<<<<< HEAD
 export const eligibilityScans = pgTable('eligibility_scans', {
   id: serial('id').primaryKey(),
   scanId: text('scan_id').notNull(), // unique hash or uuid
@@ -54,3 +55,70 @@ export type AidProgram = typeof aidPrograms.$inferSelect;
 export type NewAidProgram = typeof aidPrograms.$inferInsert;
 export type EligibilityScan = typeof eligibilityScans.$inferSelect;
 export type AlertSubscription = typeof alertSubscriptions.$inferSelect;
+=======
+// New canonical table for aid programs (to match requested schema name).
+export const aidPrograms = pgTable(
+  "aid_programs",
+  {
+    id: serial("id").primaryKey(),
+    slug: varchar("slug", { length: 64 }).notNull().unique(),
+    name: varchar("name", { length: 160 }).notNull(),
+    nameMs: varchar("name_ms", { length: 160 }).notNull(),
+    agency: varchar("agency", { length: 120 }).notNull(),
+    category: varchar("category", { length: 64 }).notNull(),
+    description: text("description").notNull(),
+    benefitLabel: text("benefit_label").notNull(),
+    applyUrl: text("apply_url").notNull(),
+    benefitType: varchar("benefit_type", { length: 16 }).notNull().default("cash"),
+    incomeCeiling: numeric("income_ceiling", { precision: 10, scale: 2 }),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    active: integer("active").notNull().default(1),
+    startsAt: timestamp("starts_at"),
+    endsAt: timestamp("ends_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    categoryIdx: index("aid_programs_category_idx").on(table.category),
+  }),
+);
+
+// Detailed eligibility scans with optional anonymous flag and hashed contact.
+export const eligibilityScans = pgTable("eligibility_scans", {
+  id: serial("id").primaryKey(),
+  profile: jsonb("profile").$type<Profile>().notNull(),
+  matched: jsonb("matched")
+    .$type<{ slug: string; estimatedAnnual: number }[]>()
+    .notNull()
+    .default([]),
+  totalEstimatedAnnual: numeric("total_estimated_annual", { precision: 10, scale: 2 }).notNull(),
+  eligibleCount: integer("eligible_count").notNull().default(0),
+  anonymous: integer("anonymous").notNull().default(1),
+  contactHash: varchar("contact_hash", { length: 128 }),
+  userAgent: varchar("user_agent", { length: 512 }),
+  ipHash: varchar("ip_hash", { length: 128 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Alert subscriptions with hashed contact for privacy.
+export const alertSubscriptions = pgTable("alert_subscriptions", {
+  id: serial("id").primaryKey(),
+  contactHash: varchar("contact_hash", { length: 128 }).notNull(),
+  contactType: varchar("contact_type", { length: 16 }).notNull(), // e.g. email, sms
+  language: varchar("language", { length: 8 }).notNull().default("ms"),
+  programs: jsonb("programs").$type<string[]>().notNull().default([]),
+  verified: integer("verified").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type ProgramRow = typeof programs.$inferSelect;
+export type NewProgram = typeof programs.$inferInsert;
+export type ScanRow = typeof scans.$inferSelect;
+export type NewScan = typeof scans.$inferInsert;
+export type AidProgramRow = typeof aidPrograms.$inferSelect;
+export type NewAidProgram = typeof aidPrograms.$inferInsert;
+export type EligibilityScanRow = typeof eligibilityScans.$inferSelect;
+export type NewEligibilityScan = typeof eligibilityScans.$inferInsert;
+export type AlertSubscriptionRow = typeof alertSubscriptions.$inferSelect;
+export type NewAlertSubscription = typeof alertSubscriptions.$inferInsert;
+>>>>>>> a236985 (Update package and database schema)

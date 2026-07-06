@@ -106,7 +106,7 @@ Distributed under the **MIT License**.
 
 > Preview the application here:
 
-**https://3000-igpyas3f916udy9atw2dz.e2b.app/**
+**https://bantu-rakyat-ai.vercel.app**
 
 ---
 

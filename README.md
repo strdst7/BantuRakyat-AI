@@ -1,45 +1,119 @@
-# BantuRakyat-AI
+<div align="center">
 
-BantuRakyat-AI is a Next.js + TypeScript project that provides AI-assisted programs and eligibility tools for community support.
+# 🇲🇾 BantuRakyat-AI
 
-## Quickstart
+### AI-powered assistance for community support, eligibility checking, and public aid programs.
 
-Prerequisites:
-- Node.js 18+ (or the version in `engines`)
-- npm, yarn, or pnpm
+Built with **Next.js**, **TypeScript**, and modern web technologies.
 
-Install dependencies:
+---
+
+![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
+</div>
+
+---
+
+# ✨ Overview
+
+**BantuRakyat-AI** is a modern web application that helps communities access AI-assisted guidance for government assistance programs and eligibility checking.
+
+It aims to simplify the process of finding relevant aid through an intuitive, fast, and user-friendly experience.
+
+---
+
+# 🚀 Quick Start
+
+## 📋 Prerequisites
+
+Before getting started, ensure you have:
+
+- Node.js **18+**
+- npm, pnpm, or Yarn
+
+---
+
+## 📦 Installation
 
 ```bash
 npm install
-# or pnpm install
+
+# or
+
+pnpm install
 ```
 
-Run development server:
+---
+
+## 💻 Start Development Server
 
 ```bash
 npm run dev
 ```
 
-Build for production:
+Open your browser at:
+
+```
+http://localhost:3000
+```
+
+---
+
+## 🏗 Production Build
 
 ```bash
 npm run build
 npm run start
 ```
 
-Project structure highlights:
-- `src/app/` — Next.js app routes and pages
-- `src/components/` — React components
-- `src/lib/` — helper modules
-- `src/db/` — Drizzle/DB configuration
+---
 
-Contributing
-- Open pull requests against `main`. Branch protection requires reviews.
+# 📁 Project Structure
 
-License
-- MIT
+```text
+src/
+│
+├── app/          # Next.js App Router
+├── components/   # Reusable React components
+├── lib/          # Utility & helper modules
+└── db/           # Database (Drizzle ORM)
+```
 
-## Live Preview
+---
 
-- Preview URL: https://3000-igpyas3f916udy9atw2dz.e2b.app/
+# 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork this repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a Pull Request targeting **main**
+
+> Branch protection requires reviews before merging.
+
+---
+
+# 📄 License
+
+Distributed under the **MIT License**.
+
+---
+
+# 🌐 Live Preview
+
+> Preview the application here:
+
+**https://3000-igpyas3f916udy9atw2dz.e2b.app/**
+
+---
+
+<div align="center">
+
+### 🇲🇾 Empowering communities with AI-driven assistance.
+
+Made with ❤️ using Next.js + TypeScript
+
+</div>

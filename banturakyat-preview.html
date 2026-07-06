@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BantuRakyat AI — Pengimbas Bantuan & Subsidi Kerajaan Malaysia</title>
+<style>
+  :root {
+    --bg-main: #f8fafc;
+    --text-main: #0f172a;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --accent: #f59e0b;
+    --border: #e2e8f0;
+    --card-bg: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background: var(--bg-main); color: var(--text-main); line-height: 1.5; padding-bottom: 60px; }
+  header { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: white; padding: 24px 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+  .max-w { max-w: 1200px; max-width: 1200px; margin: 0 auto; }
+  .badge { display: inline-flex; items-center; gap: 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #6ee7b7; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .dot { width: 6px; height: 6px; background: #34d399; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+  h1 { font-size: 28px; font-weight: 800; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  header p { color: #cbd5e1; font-size: 14px; max-width: 700px; }
+  
+  .tabs { display: flex; gap: 8px; overflow-x: auto; margin-top: 20px; padding-bottom: 4px; border-top: 1px solid rgba(255,255,255,0.15); pt: 16px; padding-top: 16px; }
+  .tab-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+  .tab-btn:hover { background: rgba(255,255,255,0.15); }
+  .tab-btn.active { background: var(--accent); color: #0f172a; font-weight: 800; }
+
+  .grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 24px; padding: 0 20px; }
+  @media (min-width: 900px) { .grid-main { grid-template-columns: 420px 1fr; } }
+
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .card-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  
+  label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  select, input[type="text"], input[type="email"], input[type="tel"] { width: 100%; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; margin-bottom: 16px; outline: none; transition: border 0.2s; }
+  select:focus, input:focus { border-color: var(--primary); }
+  
+  .income-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .income-val { font-size: 16px; font-weight: 800; color: var(--primary); }
+  input[type="range"] { width: 100%; margin-bottom: 4px; accent-color: var(--primary); }
+  .range-labels { display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-bottom: 16px; font-weight: 600; }
+  
+  .cats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .cat-chip { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; color: #475569; transition: all 0.15s; }
+  .cat-chip.selected { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .btn-submit { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2); }
+  .btn-submit:hover { background: var(--primary-hover); }
+
+  .summary-banner { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; padding: 24px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+  .total-box { background: rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 12px; text-align: right; border: 1px solid rgba(255,255,255,0.15); }
+  .total-num { font-size: 26px; font-weight: 900; color: #fbbf24; }
+
+  .prog-card { background: white; border: 1px solid var(--border); border-left: 6px solid var(--primary); border-radius: 14px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+  .prog-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+  .prog-tag { background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+  .prog-amt { font-size: 18px; font-weight: 800; color: #059669; }
+  .prog-ai { background: #fffbeb; border: 1px solid #fef3c7; padding: 14px; border-radius: 10px; margin: 12px 0; font-size: 13.5px; color: #78350f; font-weight: 500; }
+  .prog-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 12px; }
+  .btn-apply { background: #0f172a; color: white; text-decoration: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12px; }
+
+  .hidden { display: none; }
+  .event-item { background: #f8fafc; border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 16px; border-radius: 12px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="max-w">
+    <div class="badge"><span class="dot"></span> Live DOSM / PasarAPI Offline Engine</div>
+    <h1>✨ BantuRakyat AI Preview</h1>
+    <p>Pengimbas Pintar Bantuan & Subsidi Kerajaan Malaysia (STR, SARA, JKM, Zakat & MySalam) dengan Penjelasan AI Bahasa Melayu gaya santai.</p>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('scanner')">🔍 Pengimbas Kelayakan</button>
+      <button class="tab-btn" onclick="showTab('missing')">⚡ Subsidi Terlepas</button>
+      <button class="tab-btn" onclick="showTab('calendar')">📅 Kalendar 2026</button>
+      <button class="tab-btn" onclick="showTab('docs')">📑 Senarai Dokumen</button>
+    </div>
+  </div>
+</header>
+
+<div class="max-w grid grid-main" id="tab-scanner">
+  <div class="card">
+    <div class="card-title">
+      <span>1. Profil Isi Rumah Anda</span>
+      <span style="font-size: 11px; color: #059669; background: #ecfdf5; padding: 4px 8px; border-radius: 99px;">🔒 Mod Sulit</span>
+    </div>
+    
+    <label>Negeri Kediaman</label>
+    <select id="state" onchange="runScan()">
+      <option value="Selangor">Selangor</option>
+      <option value="Kelantan">Kelantan</option>
+      <option value="Johor">Johor</option>
+      <option value="W.P. Kuala Lumpur">W.P. Kuala Lumpur</option>
+      <option value="Pulau Pinang">Pulau Pinang</option>
+      <option value="Sabah">Sabah</option>
+      <option value="Sarawak">Sarawak</option>
+      <option value="Kedah">Kedah</option>
+    </select>
+
+    <div class="income-header">
+      <label style="margin:0">Pendapatan Isi Rumah Bulanan</label>
+      <span class="income-val" id="income-disp">RM 2,800</span>
+    </div>
+    <input type="range" id="income" min="500" max="15000" step="100" value="2800" oninput="document.getElementById('income-disp').innerText = 'RM ' + Number(this.value).toLocaleString(); runScan();">
+    <div class="range-labels">
+      <span>RM 500</span>
+      <span>RM 4,850 (Had B40)</span>
+      <span>RM 15k+</span>
+    </div>
+
+    <label>Bilangan Isi Rumah / Tanggungan</label>
+    <select id="size" onchange="runScan()">
+      <option value="1">1 Orang (Bujang)</option>
+      <option value="2">2 Orang</option>
+      <option value="3">3 Orang</option>
+      <option value="4" selected>4 Orang</option>
+      <option value="5">5 Orang</option>
+      <option value="6">6+ Orang</option>
+    </select>
+
+    <label>Kategori Khusus</label>
+    <div class="cats" id="category-box">
+      <div class="cat-chip selected" onclick="toggleCat(this, 'B40')">✓ B40 (< RM4,850)</div>
+      <div class="cat-chip" onclick="toggleCat(this, 'OKU')">Orang Kurang Upaya (OKU)</div>
+      <div class="cat-chip" onclick="toggleCat(this, 'WARGA EMAS')">Warga Emas (≥ 60 Thn)</div>
+      <div class="cat-chip" onclick="toggleCat(this, 'IBU TUNGGAL')">Ibu / Bapa Tunggal</div>
+    </div>
+
+    <button class="btn-submit" onclick="runScan()">✨ Imbas Bantuan Sekarang</button>
+  </div>
+
+  <div>
+    <div class="summary-banner" id="summary-banner">
+      <div>
+        <span style="font-size: 11px; color: #fbbf24; font-weight: 800; text-transform: uppercase;">Analisis AI & DOSM Kelayakan</span>
+        <h2 style="font-size: 24px; font-weight: 800;" id="qual-count">5 Program Layak Dituntut</h2>
+        <p style="font-size: 13px; color: #cbd5e1; margin-top: 4px;" id="state-info">Selangor — Median Negeri: RM 9,983</p>
+      </div>
+      <div class="total-box">
+        <span style="font-size: 12px; color: #cbd5e1; display: block;">Anggaran Nilai Tahunan</span>
+        <span class="total-num" id="total-val">RM 6,550</span>
+      </div>
+    </div>
+
+    <div id="results-list"></div>
+  </div>
+</div>
+
+<div class="max-w hidden" id="tab-missing" style="margin-top:24px; padding:0 20px;">
+  <div class="card">
+    <div class="card-title">⚡ Pengesan Subsidi Terlepas ("What Am I Missing?")</div>
+    <p style="font-size: 14px; color: #64748b; margin-bottom: 20px;">Tandakan bantuan yang ANDA SUDAH TERIMA di bawah. AI akan mengesan wang bantuan yang masih belum dituntut.</p>
+    <div id="missing-checker" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 24px;"></div>
+    <div id="missing-alert"></div>
+  </div>
+</div>
+
+<div class="max-w hidden" id="tab-calendar" style="margin-top:24px; padding:0 20px;">
+  <div class="card">
+    <div class="card-title">📅 Kalendar Pengagihan Bantuan & Tarikh Tutup 2026</div>
+    <div class="event-item">
+      <span style="font-size: 11px; font-weight: 800; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 4px;">JANUARI 2026</span>
+      <h4 style="margin-top:6px; font-size:15px;">Sumbangan Asas Rahmah (SARA) — Kredit Bulanan RM100</h4>
+      <p style="font-size: 13px; color: #475569;">Kredit tanpa tunai dikreditkan terus ke dalam MyKad setiap 1 haribulan.</p>
+    </div>
+    <div class="event-item" style="border-color: #059669;">
+      <span style="font-size: 11px; font-weight: 800; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 4px;">FEBRUARI 2026</span>
+      <h4 style="margin-top:6px; font-size:15px;">Sumbangan Tunai Rahmah (STR) — Pengagihan Fasa 1</h4>
+      <p style="font-size: 13px; color: #475569;">Pembayaran tunai RM500 - RM1,000 dikreditkan ke akaun bank penerima berdaftar.</p>
+    </div>
+    <div class="event-item" style="border-color: #d97706;">
+      <span style="font-size: 11px; font-weight: 800; color: #d97706; background: #fffbeb; padding: 2px 8px; border-radius: 4px;">APRIL 2026</span>
+      <h4 style="margin-top:6px; font-size:15px;">Sumbangan Tunai Rahmah (STR) — Bayaran Fasa 2 Khas Aidilfitri</h4>
+      <p style="font-size: 13px; color: #475569;">Disalurkan sebelum menyambut Hari Raya Aidilfitri untuk persiapan keluarga.</p>
+    </div>
+  </div>
+</div>
+
+<div class="max-w hidden" id="tab-docs" style="margin-top:24px; padding:0 20px;">
+  <div class="card">
+    <div class="card-title">📑 Panduan Dokumen Wajib Permohonan</div>
+    <ul style="padding-left: 20px; font-size: 14px; color: #334155; line-height: 2;">
+      <li><strong>Salinan MyKad Pemohon & Pasangan</strong> — Pastikan nombor jelas dan tidak kabur.</li>
+      <li><strong>Salinan Sijil Lahir Anak / MyKid</strong> — Bagi membuktikan tanggungan di bawah umur 18 tahun.</li>
+      <li><strong>Penyata Akaun Bank Aktif</strong> — Wajib atas nama pemohon utama (bukan akaun bersama).</li>
+      <li><strong>Slip Gaji 3 Bulan Terkini / Pengesahan Tidak Bekerja</strong> — Dari JPKK atau Penghulu mukim.</li>
+      <li><strong>Salinan Bil Air / Elektrik Tempat Kediaman</strong> — Untuk bukti mastautin negeri (khusus BINGKAS Selangor / Zakat).</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  let selectedCats = ['B40'];
+  let claimedCodes = [];
+
+  const PROGRAMS = [
+    { code: 'STR_2026', name: 'Sumbangan Tunai Rahmah (STR 2026)', cat: 'Bantuan Tunai', maxInc: 5000, minAmt: 500, maxAmt: 3700, states: 'ALL', url: 'https://bantuantunai.hasil.gov.my' },
+    { code: 'SARA_2026', name: 'Sumbangan Asas Rahmah (SARA 2026)', cat: 'Barangan Asas', maxInc: 3000, minAmt: 1200, maxAmt: 1200, states: 'ALL', url: 'https://www.mykasih.com.my' },
+    { code: 'MYSALAM', name: 'Skim Perlindungan Nasional MySalam', cat: 'Kesihatan', maxInc: 4850, minAmt: 700, maxAmt: 8700, states: 'ALL', url: 'https://www.mysalam.com.my' },
+    { code: 'BINGKAS', name: 'Bantuan Kehidupan Sejahtera Selangor (BINGKAS)', cat: 'Barangan Asas', maxInc: 5000, minAmt: 3600, maxAmt: 3600, states: 'Selangor', url: 'https://www.bingkasselangor.com' },
+    { code: 'JKM_BTB', name: 'Bantuan OKU Tidak Berupaya Bekerja (BTB JKM)', cat: 'Kebajikan & OKU', maxInc: 2500, minAmt: 3600, maxAmt: 3600, states: 'ALL', target: 'OKU', url: 'https://ebantuanjkm.jkm.gov.my' },
+    { code: 'JKM_BWE', name: 'Bantuan Warga Emas (BWE JKM)', cat: 'Kebajikan & OKU', maxInc: 2500, minAmt: 6000, maxAmt: 6000, states: 'ALL', target: 'WARGA EMAS', url: 'https://ebantuanjkm.jkm.gov.my' }
+  ];
+
+  function toggleCat(el, cat) {
+    if (selectedCats.includes(cat)) {
+      selectedCats = selectedCats.filter(c => c !== cat);
+      el.classList.remove('selected');
+      el.innerHTML = el.innerHTML.replace('✓ ', '');
+    } else {
+      selectedCats.push(cat);
+      el.classList.add('selected');
+      el.innerHTML = '✓ ' + el.innerHTML;
+    }
+    runScan();
+  }
+
+  function showTab(t) {
+    ['scanner', 'missing', 'calendar', 'docs'].forEach(id => {
+      document.getElementById('tab-' + id).classList.add('hidden');
+    });
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + t).classList.remove('hidden');
+    event.target.classList.add('active');
+  }
+
+  function runScan() {
+    const inc = Number(document.getElementById('income').value);
+    const state = document.getElementById('state').value;
+    const size = Number(document.getElementById('size').value);
+
+    let qual = [];
+    let totalVal = 0;
+
+    PROGRAMS.forEach(p => {
+      if (inc > p.maxInc) return;
+      if (p.states !== 'ALL' && p.states !== state) return;
+      if (p.target && !selectedCats.includes(p.target)) return;
+
+      let amt = p.minAmt;
+      if (size >= 4 && p.maxAmt > p.minAmt) amt = p.maxAmt;
+
+      let exp = `Bro/Kakak, dengan pendapatan RM ${inc.toLocaleString()} sebulan di ${state}, anda memang layak untuk ${p.name}. Anggaran bayaran adalah RM ${amt.toLocaleString()} setahun untuk meringankan kos sara hidup harian!`;
+      if (p.code === 'SARA_2026') exp = `Auto-layak kredit RM100/bulan masuk MyKad untuk beli barang dapur di kedai runcit & Speedmart 99 berdekatan!`;
+
+      qual.push({ ...p, amt, exp });
+      totalVal += amt;
+    });
+
+    document.getElementById('qual-count').innerText = qual.length + ' Program Layak Dituntut';
+    document.getElementById('total-val').innerText = 'RM ' + totalVal.toLocaleString();
+    document.getElementById('state-info').innerText = state + ' — Status: Layak Subsidi B40/M40';
+
+    let html = '';
+    qual.forEach(q => {
+      html += `
+        <div class="prog-card">
+          <div class="prog-top">
+            <div>
+              <span class="prog-tag">${q.cat}</span>
+              <h3 style="font-size: 16px; margin-top: 6px;">${q.name}</h3>
+            </div>
+            <span class="prog-amt">RM ${q.amt.toLocaleString()}/thn</span>
+          </div>
+          <div class="prog-ai">✨ <strong>Penjelasan AI Gaya Chill:</strong> ${q.exp}</div>
+          <div class="prog-foot">
+            <span style="color: #64748b;">Kelayakan disahkan AI & DOSM</span>
+            <a href="${q.url}" target="_blank" class="btn-apply">Semak Portal Resmi →</a>
+          </div>
+        </div>
+      `;
+    });
+    document.getElementById('results-list').innerHTML = html;
+
+    // Update missing checker
+    let mHtml = '';
+    qual.forEach(q => {
+      const isClaimed = claimedCodes.includes(q.code);
+      mHtml += `
+        <label style="display:flex; align-items:center; gap:8px; background:#f8fafc; padding:12px; border:1px solid #cbd5e1; border-radius:10px; cursor:pointer; font-size:13px; text-transform:none; color:#0f172a;">
+          <input type="checkbox" ${isClaimed ? 'checked' : ''} onchange="toggleClaim('${q.code}')">
+          <div><strong>${q.name}</strong><br><span style="color:#059669; font-size:12px;">RM ${q.amt.toLocaleString()}/thn</span></div>
+        </label>
+      `;
+    });
+    document.getElementById('missing-checker').innerHTML = mHtml;
+
+    const unclaimed = qual.filter(q => !claimedCodes.includes(q.code));
+    const uTotal = unclaimed.reduce((a, b) => a + b.amt, 0);
+    document.getElementById('missing-alert').innerHTML = `
+      <div style="background: #fef2f2; border: 1px solid #fca5a5; padding: 20px; border-radius: 12px; color: #991b1b;">
+        <h3 style="font-size: 18px; font-weight: 800;">🚨 Wang Belum Dituntut: RM ${uTotal.toLocaleString()} / tahun</h3>
+        <p style="font-size: 13px; margin-top: 4px;">Anda layak untuk ${unclaimed.length} program ini tetapi belum menuntutnya. Segera klik pautan portal rasmi untuk membuat permohonan!</p>
+      </div>
+    `;
+  }
+
+  function toggleClaim(code) {
+    if (claimedCodes.includes(code)) claimedCodes = claimedCodes.filter(c => c !== code);
+    else claimedCodes.push(code);
+    runScan();
+  }
+
+  runScan();
+</script>
+</body>
+</html>

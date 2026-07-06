@@ -15,13 +15,32 @@ export async function getDb() {
     return dbInstance;
   }
 
-  // Ensure data directory exists for persistent local storage
-  const dataDir = path.join(process.cwd(), 'data', 'pglite_db');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  // Detect serverless environment (Vercel, AWS Lambda, Cloudflare)
+  const isServerless = Boolean(
+    process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.NETLIFY
+  );
+
+  let pglite: any;
+  if (isServerless) {
+    // In serverless environments (read-only filesystem), run PGlite in pure in-memory mode
+    pglite = new PGlite();
+  } else {
+    try {
+      // Ensure data directory exists for persistent local storage
+      const dataDir = path.join(process.cwd(), 'data', 'pglite_db');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      pglite = new PGlite(dataDir);
+    } catch (fsErr) {
+      // Fallback to in-memory if disk is read-only (EROFS)
+      console.warn('Filesystem read-only or error, falling back to in-memory PGlite:', fsErr);
+      pglite = new PGlite();
+    }
   }
 
-  const pglite = new PGlite(dataDir);
   const db = drizzlePglite(pglite, {
     schema: {
       aidPrograms,

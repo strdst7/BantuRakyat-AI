@@ -10,8 +10,9 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine
 } from 'recharts';
-import { EligibilityReport } from '../lib/aid-engine';
+import { EligibilityReport, evaluateEligibility } from '../lib/aid-engine';
 import { PasarApiSnapshot } from '../lib/pasarapi';
+import { INITIAL_AID_PROGRAMS } from '../db/seed-data';
 import Link from 'next/link';
 
 interface BantuanClientProps {
@@ -87,32 +88,49 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsScanning(true);
+    const inputObj = {
+      householdSize,
+      monthlyIncome,
+      state,
+      employmentStatus,
+      categories: selectedCategories,
+      currentlyClaimedCodes: claimedCodes,
+      isAnonymous,
+    };
+
     try {
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(inputObj),
+      });
+      if (res.ok) {
+        const data: EligibilityReport = await res.json();
+        setReport(data);
+      } else {
+        throw new Error('Serverless API non-200 response');
+      }
+    } catch (err) {
+      console.warn('Falling back to instant client-side calculation engine:', err);
+      // Instant client-side fallback evaluation if Vercel API is slow or blocked
+      const fallbackReport = evaluateEligibility(
+        INITIAL_AID_PROGRAMS as any,
+        {
           householdSize,
           monthlyIncome,
           state,
           employmentStatus,
           categories: selectedCategories,
           currentlyClaimedCodes: claimedCodes,
-          isAnonymous,
-        }),
-      });
-      if (res.ok) {
-        const data: EligibilityReport = await res.json();
-        setReport(data);
-        // Scroll to results smoothly
-        setTimeout(() => {
-          document.getElementById('scan-results')?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      }
-    } catch (err) {
-      console.error(err);
+        },
+        snapshot
+      );
+      setReport(fallbackReport);
     } finally {
       setIsScanning(false);
+      setTimeout(() => {
+        document.getElementById('scan-results')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   };
 

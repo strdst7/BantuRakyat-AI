@@ -1,44 +1,43 @@
-import { db } from "@/db";
-import { scans } from "@/db/schema";
-import { evaluateProfile, normalizeProfile, summarize } from "@/lib/eligibility";
-import type { ScanResponse } from "@/lib/types";
-
-export const dynamic = "force-dynamic";
+import { NextResponse } from 'next/server';
+import { getDb } from '../../../db/index';
+import { aidPrograms, eligibilityScans } from '../../../db/schema';
+import { fetchPasarApiSnapshot } from '../../../lib/pasarapi';
+import { evaluateEligibility, ScanInput } from '../../../lib/aid-engine';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const profile = normalizeProfile(body);
-
-    const matches = evaluateProfile(profile);
-    const { eligibleCount, totalEstimatedAnnual } = summarize(matches);
-
-    // Best-effort persistence — do not block the response if it fails.
-    try {
-      await db.insert(scans).values({
-        profile,
-        matched: matches
-          .filter((m) => m.eligible)
-          .map((m) => ({
-            slug: m.program.slug,
-            estimatedAnnual: m.estimatedAnnual,
-          })),
-        totalEstimatedAnnual: totalEstimatedAnnual.toFixed(2),
-        eligibleCount,
-      });
-    } catch (e) {
-      console.error("Failed to persist scan", e);
-    }
-
-    const response: ScanResponse = {
-      matches,
-      totalEstimatedAnnual,
-      eligibleCount,
-      profile,
+    const body = await req.json();
+    const input: ScanInput = {
+      householdSize: Number(body.householdSize || 1),
+      monthlyIncome: Number(body.monthlyIncome || 0),
+      state: String(body.state || 'Selangor'),
+      employmentStatus: String(body.employmentStatus || 'Bekerja'),
+      categories: Array.isArray(body.categories) ? body.categories : [],
+      currentlyClaimedCodes: Array.isArray(body.currentlyClaimedCodes) ? body.currentlyClaimedCodes : [],
     };
-    return Response.json(response);
-  } catch (err) {
-    console.error("Scan failed", err);
-    return Response.json({ error: "Gagal memproses imbasan." }, { status: 500 });
+
+    const db = await getDb();
+    const programs = await db.select().from(aidPrograms);
+    const snapshot = await fetchPasarApiSnapshot();
+
+    const report = evaluateEligibility(programs, input, snapshot);
+
+    // Record anonymized scan metrics into Postgres / PGlite
+    await db.insert(eligibilityScans).values({
+      scanId: report.scanId,
+      householdSize: input.householdSize,
+      monthlyIncome: input.monthlyIncome,
+      state: input.state,
+      employmentStatus: input.employmentStatus,
+      categories: input.categories.join(','),
+      eligibleCount: report.qualifiedList.length,
+      totalEstimatedValue: report.totalAnnualQualifiedValue,
+      isAnonymous: Boolean(body.isAnonymous ?? true),
+    });
+
+    return NextResponse.json(report);
+  } catch (error: any) {
+    console.error('Error processing eligibility scan:', error);
+    return NextResponse.json({ error: 'Failed to process eligibility scan', details: error.message }, { status: 500 });
   }
 }

@@ -1,30 +1,19 @@
-import type { Metadata } from "next";
-import type { ReactNode } from "react";
-import { Sora, Plus_Jakarta_Sans } from "next/font/google";
-import "./globals.css";
-
-const sora = Sora({
-  subsets: ["latin"],
-  variable: "--font-sora",
-  weight: ["500", "600", "700", "800"],
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-jakarta",
-  weight: ["400", "500", "600", "700"],
-});
+import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "BantuRakyat AI — Pencari Bantuan Kerajaan Malaysia",
-  description:
-    "Semak kelayakan anda untuk pelbagai bantuan kerajaan Malaysia (STR, SARA, JKM, MySalam dan banyak lagi) dalam satu imbasan, dengan bantuan pembantu AI.",
+  title: 'BantuRakyat AI — Pengimbas Bantuan & Subsidi Kerajaan Malaysia',
+  description: 'Pengimbas Bantuan & Subsidi Kerajaan Malaysia (STR, SARA, JKM, Zakat & MySalam) dengan Penjelasan AI Bahasa Melayu / English & Data Live OpenDOSM PasarAPI.',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="ms">
-      <body className={`${sora.variable} ${jakarta.variable} font-sans`}>
+    <html lang="ms" className="scroll-smooth">
+      <body className="antialiased bg-slate-50 text-slate-900 selection:bg-amber-400 selection:text-slate-950 font-sans">
         {children}
       </body>
     </html>

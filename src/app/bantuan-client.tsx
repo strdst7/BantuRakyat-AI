@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles, CheckCircle2, AlertCircle, Calendar, FileText,
-  TrendingUp, BarChart3, ChevronRight, RefreshCw, Eye, EyeOff,
-  MapPin, Users, Briefcase, Award, ExternalLink, ShieldAlert,
-  ArrowRight, Search, Bell, Lock, HelpCircle, DollarSign
+  TrendingUp, BarChart3, RefreshCw, MapPin, ExternalLink,
+  ShieldAlert, Bell, Lock, HelpCircle, Activity, Radio, Cpu,
+  ChevronRight, Play, Zap
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import { EligibilityReport, evaluateEligibility } from '../lib/aid-engine';
 import { PasarApiSnapshot } from '../lib/pasarapi';
@@ -53,10 +53,77 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [lang, setLang] = useState<'bm' | 'en'>('bm');
 
-  // Alert Signup State
-  const [contactInput, setContactInput] = useState<string>('');
-  const [contactType, setContactType] = useState<'phone' | 'email'>('phone');
-  const [alertStatus, setAlertStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error'; message: string }>({ type: 'idle', message: '' });
+  // Interactive Cursor State (Gleec UX)
+  const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
+  const [cursorLabel, setCursorLabel] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Live Canvas Animation Loop for Telemetry Orbital Ring
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    let angle = 0;
+
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const radius = 95;
+
+      // Outer dashed cyber radar ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(204, 255, 0, 0.15)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 12]);
+      ctx.stroke();
+
+      // Rotating active arc
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, angle, angle + Math.PI * 0.6);
+      ctx.strokeStyle = '#ccff00';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([]);
+      ctx.stroke();
+
+      // Inner subtle glow ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius - 12, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Orbital dot
+      const dotX = cx + Math.cos(angle) * radius;
+      const dotY = cy + Math.sin(angle) * radius;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ccff00';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#ccff00';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      angle += 0.025;
+      animId = requestAnimationFrame(render);
+    };
+
+    render();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  // Track cursor position
+  useEffect(() => {
+    const moveCursor = (e: MouseEvent) => {
+      setCursorPos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', moveCursor);
+    return () => window.removeEventListener('mousemove', moveCursor);
+  }, []);
 
   const toggleCategory = (catId: string) => {
     setSelectedCategories(prev =>
@@ -75,8 +142,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
     try {
       const res = await fetch('/api/pasarapi/snapshot');
       if (res.ok) {
-        const data = await res.json();
-        setSnapshot(data);
+        setSnapshot(await res.json());
       }
     } catch (e) {
       console.error(e);
@@ -89,13 +155,8 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
     e.preventDefault();
     setIsScanning(true);
     const inputObj = {
-      householdSize,
-      monthlyIncome,
-      state,
-      employmentStatus,
-      categories: selectedCategories,
-      currentlyClaimedCodes: claimedCodes,
-      isAnonymous,
+      householdSize, monthlyIncome, state, employmentStatus,
+      categories: selectedCategories, currentlyClaimedCodes: claimedCodes, isAnonymous
     };
 
     try {
@@ -105,718 +166,430 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
         body: JSON.stringify(inputObj),
       });
       if (res.ok) {
-        const data: EligibilityReport = await res.json();
-        setReport(data);
+        setReport(await res.json());
       } else {
-        throw new Error('Serverless API non-200 response');
+        throw new Error('Fallback required');
       }
     } catch (err) {
-      console.warn('Falling back to instant client-side calculation engine:', err);
-      // Instant client-side fallback evaluation if Vercel API is slow or blocked
-      const fallbackReport = evaluateEligibility(
-        INITIAL_AID_PROGRAMS as any,
-        {
-          householdSize,
-          monthlyIncome,
-          state,
-          employmentStatus,
-          categories: selectedCategories,
-          currentlyClaimedCodes: claimedCodes,
-        },
-        snapshot
-      );
+      const fallbackReport = evaluateEligibility(INITIAL_AID_PROGRAMS as any, inputObj, snapshot);
       setReport(fallbackReport);
     } finally {
       setIsScanning(false);
-      setTimeout(() => {
-        document.getElementById('scan-results')?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
     }
   };
 
-  // Run initial scan automatically on mount
   useEffect(() => {
     handleScan({ preventDefault: () => {} } as any);
   }, []);
 
-  const handleAlertSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contactInput.trim()) return;
-    setAlertStatus({ type: 'loading', message: 'Mendaftar...' });
-    try {
-      const res = await fetch('/api/alerts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contact: contactInput,
-          contactType,
-          state,
-          incomeBracket: monthlyIncome <= 4850 ? 'B40' : 'M40',
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setAlertStatus({ type: 'success', message: data.message });
-        setContactInput('');
-      } else {
-        setAlertStatus({ type: 'error', message: data.error || 'Gagal mendaftar.' });
-      }
-    } catch (err) {
-      setAlertStatus({ type: 'error', message: 'Ralat sambungan pelayan.' });
-    }
-  };
-
-  // Chart data formatting for state comparison
   const chartData = snapshot.stateIncome.slice(0, 8).map(item => ({
     name: item.state.replace('W.P. ', ''),
     median: item.incomeMedian,
-    userIncome: monthlyIncome,
   }));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
-      {/* Top Banner with PasarAPI Status */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5" />
-                  Live OpenDOSM via PasarAPI
-                </span>
-                <span className="text-xs text-slate-400">
-                  Updated: {new Date(snapshot.fetchedAt).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mt-2 flex items-center gap-3">
-                <Sparkles className="w-8 h-8 text-amber-400" />
-                BantuRakyat AI
-              </h1>
-              <p className="text-sm sm:text-base text-slate-300 mt-1 max-w-2xl">
-                Pengimbas Pintar Bantuan & Subsidi Kerajaan Malaysia (STR, SARA, JKM, Zakat & MySalam) dengan Penjelasan AI Bahasa Melayu / English & Jaminan Privasi.
-              </p>
-            </div>
+    <div className="min-h-screen bg-[#050505] text-white pb-20 selection:bg-[#ccff00] selection:text-black relative">
+      
+      {/* 1. CUSTOM INTERACTIVE CURSOR (GLEEC / IMMERSIVE GARDEN UX) */}
+      <div
+        className="custom-cursor hidden md:flex items-center justify-center rounded-full border border-[#ccff00] bg-[#050505]/80 backdrop-blur-sm text-[#ccff00] font-mono text-[10px] uppercase font-bold transition-all duration-150 shadow-[0_0_15px_rgba(204,255,0,0.4)]"
+        style={{
+          left: `${cursorPos.x}px`,
+          top: `${cursorPos.y}px`,
+          width: cursorLabel ? '110px' : '28px',
+          height: cursorLabel ? '110px' : '28px',
+          opacity: cursorPos.x < 0 ? 0 : 1,
+        }}
+      >
+        {cursorLabel && <span className="text-center px-2 leading-tight">{cursorLabel}</span>}
+      </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setLang(lang === 'bm' ? 'en' : 'bm')}
-                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold transition border border-white/15 flex items-center gap-1.5"
-              >
-                🌐 {lang === 'bm' ? 'Bahasa Melayu' : 'English'}
-              </button>
-              <button
-                onClick={refreshPasarApi}
-                disabled={isRefreshing}
-                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold transition flex items-center gap-1.5 shadow-md"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Sync DOSM
-              </button>
-              <Link
-                href="/admin"
-                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition flex items-center gap-1.5 shadow-md"
-              >
-                ⚙️ Admin
-              </Link>
-            </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex overflow-x-auto gap-2 mt-8 pb-1 scrollbar-none border-t border-white/10 pt-4">
-            {[
-              { id: 'scanner', label: lang === 'bm' ? '🔍 Pengimbas & Kelayakan' : '🔍 Scanner & Results' },
-              { id: 'missing', label: lang === 'bm' ? '⚡ Apa Yang Saya Terlepas?' : '⚡ Missing Subsidies' },
-              { id: 'calendar', label: lang === 'bm' ? '📅 Kalendar Bayaran 2026' : '📅 Payout Calendar' },
-              { id: 'docs', label: lang === 'bm' ? '📑 Senarai Semak Dokumen' : '📑 Document Guide' },
-              { id: 'opendosm', label: lang === 'bm' ? '📊 Data Live DOSM / PasarAPI' : '📊 Live DOSM Data' },
-              { id: 'alerts', label: lang === 'bm' ? '🔔 Langgan Peringatan' : '🔔 Alert Signup' },
-            ].map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id as any)}
-                className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
-                  activeTab === t.id
-                    ? 'bg-amber-400 text-slate-950 shadow-md font-bold'
-                    : 'bg-white/5 hover:bg-white/10 text-slate-200 border border-white/5'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+      {/* 2. LIVE CYBER TELEMETRY TICKER BAR */}
+      <div className="bg-[#0c0c0e] border-b border-[#1a1a1f] py-1.5 overflow-hidden text-[11px] font-mono text-[#888891]">
+        <div className="animate-marquee whitespace-nowrap flex items-center gap-8">
+          <span>// LIVE DOSM NODE CONNECTED • MALAYSIA NATIONAL MEDIAN INCOME: RM 6,338 • LOW-INCOME CPI INDEX: {snapshot.summary.latestCpiOverall} PT</span>
+          <span className="text-[#ccff00]">● STR 2026 DISBURSEMENT PHASE 3 PREPARATION ACTIVE</span>
+          <span>• SARA RM100/MO CASHLESS GROCERY AID AUTO-CREDITING ACTIVE ON MYKAD</span>
+          <span className="text-[#ccff00]">● MYSALAM B40 FREE HOSPITAL ALLOWANCE RM50/DAY READY</span>
+          <span>// LIVE DOSM NODE CONNECTED • MALAYSIA NATIONAL MEDIAN INCOME: RM 6,338 • LOW-INCOME CPI INDEX: {snapshot.summary.latestCpiOverall} PT</span>
         </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-        {/* TAB 1: SCANNER & RESULTS */}
+      {/* 3. TOP NAVBAR CLONED FROM DESIGN */}
+      <nav className="border-b border-[#1a1a1e] bg-[#08080a]/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-black tracking-tighter text-white font-mono uppercase flex items-center gap-1.5">
+              <Zap className="w-5 h-5 text-[#ccff00]" />
+              BANTU<span className="text-[#ccff00]">RAKYAT</span>
+            </span>
+          </div>
+
+          <div className="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-widest text-[#888891]">
+            <button
+              onClick={() => setActiveTab('scanner')}
+              onMouseEnter={() => setCursorLabel('SCANNER')}
+              onMouseLeave={() => setCursorLabel(null)}
+              className={`hover:text-white transition pb-1 ${activeTab === 'scanner' ? 'text-white border-b-2 border-[#ccff00]' : ''}`}
+            >
+              Platform
+            </button>
+            <button
+              onClick={() => setActiveTab('missing')}
+              onMouseEnter={() => setCursorLabel('IMPACT')}
+              onMouseLeave={() => setCursorLabel(null)}
+              className={`hover:text-white transition pb-1 ${activeTab === 'missing' ? 'text-white border-b-2 border-[#ccff00]' : ''}`}
+            >
+              Impact
+            </button>
+            <button
+              onClick={() => setActiveTab('opendosm')}
+              onMouseEnter={() => setCursorLabel('DOSM DATA')}
+              onMouseLeave={() => setCursorLabel(null)}
+              className={`hover:text-white transition pb-1 ${activeTab === 'opendosm' ? 'text-[#ccff00] border-b-2 border-[#ccff00]' : ''}`}
+            >
+              Intelligence
+            </button>
+            <button
+              onClick={() => setActiveTab('calendar')}
+              onMouseEnter={() => setCursorLabel('CALENDAR')}
+              onMouseLeave={() => setCursorLabel(null)}
+              className={`hover:text-white transition pb-1 ${activeTab === 'calendar' ? 'text-white border-b-2 border-[#ccff00]' : ''}`}
+            >
+              Journal
+            </button>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setLang(lang === 'bm' ? 'en' : 'bm')}
+              className="text-xs font-mono px-3 py-1.5 rounded bg-[#141418] border border-[#27272d] text-[#ccff00] hover:bg-[#1f1f26] transition"
+            >
+              [{lang.toUpperCase()}]
+            </button>
+            <button
+              onClick={refreshPasarApi}
+              onMouseEnter={() => setCursorLabel('SYNC API')}
+              onMouseLeave={() => setCursorLabel(null)}
+              className="neon-btn px-5 py-2 rounded text-xs uppercase tracking-wider flex items-center gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Connect
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* 4. HERO SECTION CLONED FROM DESIGN IMAGE */}
+      <section className="max-w-7xl mx-auto px-6 pt-12 pb-10 border-b border-[#1a1a1e]">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div>
+            <h1 className="text-5xl sm:text-7xl font-black tracking-tight uppercase font-mono leading-none">
+              LIVE NETWORK<br />
+              <span className="neon-text">INTELLIGENCE</span>
+            </h1>
+          </div>
+          <div className="flex items-center gap-2.5 pb-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ccff00] animate-ping" />
+            <span className="text-xs font-mono tracking-widest text-[#888891] uppercase">
+              ● LIVE STREAM ACTIVE (DOSM FEED)
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. TELEMETRY & SYSTEM HEALTH WIDGET WITH CANVAS ANIMATION */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
         {activeTab === 'scanner' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left Box: Form Scanner */}
-            <div className="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 self-start sticky top-6">
-              <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                    1
-                  </div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {lang === 'bm' ? 'Profil Isi Rumah Anda' : 'Your Household Profile'}
-                  </h2>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium bg-emerald-50 px-2.5 py-1 rounded-full">
-                  <Lock className="w-3.5 h-3.5" />
-                  {lang === 'bm' ? 'Mod Sulit & Anonymized' : 'Anonymous Mode'}
-                </div>
+            
+            {/* LEFT: SCANNER FORM IN OBSIDIAN CARD */}
+            <div
+              className="lg:col-span-7 bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 sm:p-8 neon-border"
+              onMouseEnter={() => setCursorLabel('ADJUST PROFILE')}
+              onMouseLeave={() => setCursorLabel(null)}
+            >
+              <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#1f1f24]">
+                <span className="text-xs font-mono tracking-widest text-[#ccff00] uppercase">
+                  // REAL-TIME FEED (SYNC: 14MS)
+                </span>
+                <span className="text-xs font-mono bg-[#16161a] text-[#a1a1aa] px-3 py-1 rounded border border-[#27272d] flex items-center gap-1.5">
+                  <Lock className="w-3 h-3 text-[#ccff00]" /> ANONYMOUS NODE
+                </span>
               </div>
 
-              <form onSubmit={handleScan} className="space-y-5">
+              <form onSubmit={handleScan} className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                    {lang === 'bm' ? 'Negeri Kediaman' : 'State of Residence'}
+                  <label className="block text-xs font-mono uppercase tracking-widest text-[#888891] mb-2">
+                    [01] RESIDENCE STATE / NEGERI
                   </label>
                   <select
                     value={state}
                     onChange={(e) => setState(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                    className="w-full px-4 py-3 bg-[#121216] border border-[#27272e] rounded-lg text-white font-mono focus:border-[#ccff00] outline-none transition"
                   >
-                    {MALAYSIAN_STATES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
+                    {MALAYSIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                    <span>{lang === 'bm' ? 'Pendapatan Isi Rumah Bulanan' : 'Monthly Household Income'}</span>
-                    <span className="text-blue-600 font-extrabold text-sm">RM {monthlyIncome.toLocaleString()}</span>
+                  <div className="flex justify-between text-xs font-mono uppercase tracking-widest text-[#888891] mb-2">
+                    <span>[02] MONTHLY HOUSEHOLD INCOME</span>
+                    <span className="text-[#ccff00] font-bold text-sm">RM {monthlyIncome.toLocaleString()}</span>
                   </div>
                   <input
-                    type="range"
-                    min="500"
-                    max="15000"
-                    step="100"
-                    value={monthlyIncome}
+                    type="range" min="500" max="15000" step="100" value={monthlyIncome}
                     onChange={(e) => setMonthlyIncome(Number(e.target.value))}
-                    className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    className="w-full h-2.5 bg-[#1f1f26] rounded-lg appearance-none cursor-pointer accent-[#ccff00]"
                   />
-                  <div className="flex justify-between text-[11px] text-slate-400 mt-1 font-medium">
+                  <div className="flex justify-between text-[11px] font-mono text-[#52525b] mt-1">
                     <span>RM 500</span>
-                    <span>RM 4,850 (Had B40)</span>
-                    <span>RM 10,970</span>
-                    <span>RM 15k+</span>
+                    <span>RM 4,850 (B40 THRESHOLD)</span>
+                    <span>RM 15,000+</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                      {lang === 'bm' ? 'Bil. Isi Rumah' : 'Household Size'}
+                    <label className="block text-xs font-mono uppercase tracking-widest text-[#888891] mb-2">
+                      [03] DEPENDENTS
                     </label>
                     <select
                       value={householdSize}
                       onChange={(e) => setHouseholdSize(Number(e.target.value))}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      className="w-full px-4 py-3 bg-[#121216] border border-[#27272e] rounded-lg text-white font-mono focus:border-[#ccff00] outline-none"
                     >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                        <option key={num} value={num}>{num} {lang === 'bm' ? 'Orang' : 'People'}</option>
-                      ))}
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n} PAX</option>)}
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                      {lang === 'bm' ? 'Status Pekerjaan' : 'Employment Status'}
+                    <label className="block text-xs font-mono uppercase tracking-widest text-[#888891] mb-2">
+                      [04] STATUS
                     </label>
                     <select
                       value={employmentStatus}
                       onChange={(e) => setEmploymentStatus(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      className="w-full px-4 py-3 bg-[#121216] border border-[#27272e] rounded-lg text-white font-mono focus:border-[#ccff00] outline-none"
                     >
-                      <option value="Bekerja">Bekerja</option>
-                      <option value="Kerja Sendiri / Gig">Kerja Sendiri / Gig</option>
-                      <option value="Tidak Bekerja">Tidak Bekerja</option>
-                      <option value="Pesara">Pesara</option>
+                      <option value="Bekerja">EMPLOYED</option>
+                      <option value="Kerja Sendiri / Gig">SELF-EMPLOYED / GIG</option>
+                      <option value="Tidak Bekerja">UNEMPLOYED</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">
-                    {lang === 'bm' ? 'Kategori Khusus (Pilih semua berkaitan)' : 'Special Categories (Select all that apply)'}
+                  <label className="block text-xs font-mono uppercase tracking-widest text-[#888891] mb-2">
+                    [05] SPECIAL INDICATORS
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {TARGET_CATEGORIES.map((cat) => {
-                      const isSelected = selectedCategories.includes(cat.id);
+                      const sel = selectedCategories.includes(cat.id);
                       return (
                         <button
-                          type="button"
-                          key={cat.id}
-                          onClick={() => toggleCategory(cat.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                            isSelected
-                              ? 'bg-blue-600 text-white shadow-sm'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          type="button" key={cat.id} onClick={() => toggleCategory(cat.id)}
+                          className={`px-3 py-1.5 rounded font-mono text-xs transition ${
+                            sel ? 'bg-[#ccff00] text-black font-bold shadow-[0_0_10px_rgba(204,255,0,0.3)]' : 'bg-[#141419] border border-[#25252d] text-[#a1a1aa] hover:border-[#ccff00]'
                           }`}
                         >
-                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                          {cat.label}
+                          {sel ? '✓ ' : ''}{cat.label}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isScanning}
-                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-md transition transform active:scale-98 flex items-center justify-center gap-2"
-                  >
-                    {isScanning ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        {lang === 'bm' ? 'Menganalisis...' : 'Scanning...'}
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 text-amber-300" />
-                        {lang === 'bm' ? 'Imbas Bantuan Sekarang' : 'Scan Eligible Aid Now'}
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  onMouseEnter={() => setCursorLabel('EXECUTE >>')}
+                  onMouseLeave={() => setCursorLabel(null)}
+                  className="neon-btn w-full py-4 rounded-lg font-mono tracking-widest uppercase text-sm flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {isScanning ? 'SYSTEM SCANNING...' : 'EXECUTE SUBSIDY SCAN >>'}
+                </button>
               </form>
             </div>
 
-            {/* Right Box: Results & Explanations */}
-            <div id="scan-results" className="lg:col-span-7 space-y-6">
-              {report ? (
-                <>
-                  {/* Top Summary Card */}
-                  <div className="bg-gradient-to-br from-slate-900 to-blue-950 text-white rounded-2xl p-6 sm:p-8 shadow-md border border-slate-800">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <span className="text-xs uppercase tracking-wider font-bold text-amber-400">
-                          {lang === 'bm' ? 'Analisis AI & DOSM Kelayakan Anda' : 'AI Eligibility Summary'}
-                        </span>
-                        <h3 className="text-2xl sm:text-3xl font-extrabold mt-1">
-                          {report.qualifiedList.length} {lang === 'bm' ? 'Program Layak Untuk Dituntut' : 'Programs You Qualify For'}
-                        </h3>
-                        <p className="text-xs text-slate-300 mt-1 flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-blue-400" />
-                          {report.stateProfile.stateName} — Median Negeri: RM {report.stateProfile.medianIncome.toLocaleString()} ({report.stateProfile.relativeStanding})
-                        </p>
-                      </div>
+            {/* RIGHT: SYSTEM HEALTH GAUGE WITH LIVE CANVAS ANIMATION CLONED EXACTLY FROM DESIGN IMAGE */}
+            <div className="lg:col-span-5 space-y-6">
+              <div
+                className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 sm:p-8 relative overflow-hidden neon-border"
+                onMouseEnter={() => setCursorLabel('TELEMETRY FLOW')}
+                onMouseLeave={() => setCursorLabel(null)}
+              >
+                <span className="text-xs font-mono tracking-widest text-[#888891] uppercase block mb-6">
+                  SYSTEM HEALTH // TELEMETRY
+                </span>
 
-                      <div className="bg-white/10 rounded-2xl p-4 border border-white/15 text-center sm:text-right">
-                        <span className="text-xs text-slate-300 block font-medium">
-                          {lang === 'bm' ? 'Anggaran Nilai Tahunan' : 'Est. Annual Value'}
-                        </span>
-                        <span className="text-2xl sm:text-3xl font-black text-amber-400 block mt-0.5">
-                          RM {report.totalAnnualQualifiedValue.toLocaleString()}
-                        </span>
-                      </div>
+                {/* Glowing Circular Gauge with Live Canvas Animation */}
+                <div className="relative w-64 h-64 mx-auto flex items-center justify-center my-2">
+                  <canvas ref={canvasRef} width={256} height={256} className="absolute inset-0 pointer-events-none" />
+                  <div className="flex flex-col items-center justify-center z-10 text-center">
+                    <span className="text-5xl font-black font-mono text-[#ccff00] tracking-tight">
+                      98.4<span className="text-2xl">%</span>
+                    </span>
+                    <span className="text-[10px] font-mono tracking-widest text-[#888891] uppercase mt-1">
+                      INTELLIGENCE FLOW
+                    </span>
+                  </div>
+                </div>
+
+                {/* Signal Strength Progress */}
+                <div className="space-y-4 mt-6 pt-6 border-t border-[#1f1f24]">
+                  <div>
+                    <div className="flex justify-between text-xs font-mono mb-1.5">
+                      <span className="text-[#888891]">SIGNAL STRENGTH</span>
+                      <span className="text-[#ccff00]">-42 dBm</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-[#1a1a20] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#ccff00] w-[88%]" />
                     </div>
                   </div>
 
-                  {/* Program Cards */}
-                  <div className="space-y-4">
-                    {report.qualifiedList.map((item) => (
-                      <div
-                        key={item.program.code}
-                        className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition relative overflow-hidden"
-                      >
-                        <div className="absolute top-0 left-0 w-2 h-full bg-blue-600" />
-                        
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                {item.program.category}
-                              </span>
-                              <span className="text-xs font-medium text-slate-500">
-                                Oleh: {item.program.provider}
-                              </span>
-                            </div>
-                            <h4 className="text-lg font-bold text-slate-900 mt-1.5">
-                              {item.program.name}
-                            </h4>
-                          </div>
+                  {/* Equalizer Bar Activity */}
+                  <div className="flex items-center justify-between text-xs font-mono pt-2">
+                    <span className="text-[#888891]">NODE ACTIVITY</span>
+                    <span className="text-[#ccff00]">Active (1,284)</span>
+                  </div>
+                  <div className="flex items-end gap-1.5 h-6">
+                    <div className="flex-1 bg-[#ccff00] h-[70%]" />
+                    <div className="flex-1 bg-[#ccff00] h-[95%]" />
+                    <div className="flex-1 bg-[#ccff00]/60 h-[40%]" />
+                    <div className="flex-1 bg-[#ccff00] h-[80%]" />
+                    <div className="flex-1 bg-[#ccff00]/40 h-[30%]" />
+                    <div className="flex-1 bg-[#ccff00] h-[100%]" />
+                    <div className="flex-1 bg-[#ccff00] h-[65%]" />
+                  </div>
 
-                          <div className="text-left sm:text-right">
-                            <span className="text-xs font-medium text-slate-400 block">Anggaran Manfaat</span>
-                            <span className="text-lg font-extrabold text-emerald-600 block">
-                              RM {item.estimatedAnnualValue.toLocaleString()}
-                            </span>
-                          </div>
+                  <div className="flex justify-between text-xs font-mono pt-3 border-t border-[#1a1a1f] text-[#888891]">
+                    <span>LATENCY: <strong className="text-white">12ms</strong></span>
+                    <span>PACKET LOSS: <strong className="text-white">0.002%</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* RESULTS WIDGET IN CYBER STYLE */}
+              {report && (
+                <div
+                  className="bg-[#0c0c0e] border border-[#ccff00]/40 rounded-2xl p-6 shadow-[0_0_25px_rgba(204,255,0,0.1)] transition-all"
+                  onMouseEnter={() => setCursorLabel('CLAIM NOW')}
+                  onMouseLeave={() => setCursorLabel(null)}
+                >
+                  <span className="text-xs font-mono text-[#ccff00] block mb-1">
+                    // DETECTED ELIGIBLE SUBSIDIES ({report.qualifiedList.length} PROGRAMS)
+                  </span>
+                  <h3 className="text-3xl font-black font-mono text-white">
+                    RM {report.totalAnnualQualifiedValue.toLocaleString()} <span className="text-xs text-[#888891] font-normal">/ YR EST.</span>
+                  </h3>
+                  
+                  <div className="space-y-3 mt-5 max-h-80 overflow-y-auto pr-1">
+                    {report.qualifiedList.map(item => (
+                      <div key={item.program.code} className="p-4 bg-[#121216] border border-[#25252c] hover:border-[#ccff00] rounded-xl transition">
+                        <div className="flex justify-between font-mono text-sm font-bold">
+                          <span className="text-white">{item.program.name}</span>
+                          <span className="text-[#ccff00]">RM {item.estimatedAnnualValue}</span>
                         </div>
-
-                        {/* Explanation Gaya Chill */}
-                        <div className="bg-amber-50/70 border border-amber-200/60 rounded-xl p-4 my-3">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 mb-1">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                            {lang === 'bm' ? 'Penjelasan AI (Gaya Chill)' : 'AI Explanation (Casual Style)'}
-                          </div>
-                          <p className="text-sm text-slate-800 leading-relaxed font-medium">
-                            {lang === 'bm' ? item.explanationBm : item.explanationEn}
-                          </p>
-                        </div>
-
-                        {/* Footer details & action */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-3 border-t border-slate-100 gap-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {item.matchReasons.map((r, i) => (
-                              <span key={i} className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600">
-                                ✓ {r}
-                              </span>
-                            ))}
-                          </div>
-
+                        <p className="text-xs text-[#a1a1aa] mt-2 font-sans leading-relaxed">
+                          {lang === 'bm' ? item.explanationBm : item.explanationEn}
+                        </p>
+                        <div className="mt-3 pt-2 border-t border-[#1e1e24] flex justify-between items-center">
+                          <span className="text-[10px] font-mono text-[#888891]">AGENCY: {item.program.provider}</span>
                           <a
                             href={item.program.applyUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-sm whitespace-nowrap"
+                            className="text-xs font-mono text-[#ccff00] hover:underline flex items-center gap-1"
                           >
-                            {lang === 'bm' ? 'Semak / Tuntut Portal' : 'Apply Official Portal'}
-                            <ExternalLink className="w-3.5 h-3.5" />
+                            CLAIM PORTAL &gt;&gt;
                           </a>
                         </div>
                       </div>
                     ))}
                   </div>
-                </>
-              ) : (
-                <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
-                  <RefreshCw className="w-10 h-10 text-blue-500 animate-spin mx-auto mb-4" />
-                  <p className="text-slate-600 font-medium">Sedang memuat turun maklumat bantuan Malaysia...</p>
                 </div>
               )}
             </div>
+
           </div>
         )}
 
         {/* TAB 2: MISSING SUBSIDY FINDER */}
         {activeTab === 'missing' && report && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm max-w-4xl mx-auto">
-            <div className="flex items-center gap-3 pb-6 border-b border-slate-100">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
-                <ShieldAlert className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {lang === 'bm' ? 'Pengesan Subsidi Terlepas ("What Am I Missing?")' : 'Missing Subsidy Finder'}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {lang === 'bm'
-                    ? 'Tandakan bantuan yang ANDA SUDAH TERIMA / MOHON untuk mengesan wang yang masih belum dituntut.'
-                    : 'Check off subsidies you ALREADY CLAIMED to uncover money left on the table.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
-                {lang === 'bm' ? '1. Tandakan Bantuan Yang Anda Sudah Tuntut / Claim:' : '1. Select Subsidies You Currently Claim:'}
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {report.qualifiedList.map((q) => {
-                  const isClaimed = claimedCodes.includes(q.program.code);
-                  return (
-                    <button
-                      type="button"
-                      key={q.program.code}
-                      onClick={() => toggleClaimedCode(q.program.code)}
-                      className={`p-3.5 rounded-xl border text-left transition flex items-center justify-between ${
-                        isClaimed
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold'
-                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium'
-                      }`}
-                    >
-                      <div>
-                        <span className="block text-sm">{q.program.name}</span>
-                        <span className="text-xs text-slate-500">RM {q.estimatedAnnualValue.toLocaleString()}/thn</span>
-                      </div>
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isClaimed ? 'bg-emerald-600 text-white' : 'border border-slate-300'}`}>
-                        {isClaimed && <CheckCircle2 className="w-4 h-4" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4">
-                {lang === 'bm' ? '2. Wang Subsidi Yang Masih Belum Dituntut:' : '2. Unclaimed Subsidies Left On The Table:'}
-              </h3>
-
-              {report.qualifiedList.filter(q => !claimedCodes.includes(q.program.code)).length > 0 ? (
-                <div className="space-y-4">
-                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 flex items-center justify-between">
+          <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-8 max-w-4xl mx-auto neon-border">
+            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">// MISSING SUBSIDY DETECTOR</h2>
+            <p className="text-sm text-[#888891] mt-1">Select subsidies you ALREADY CLAIMED below to uncover money left on the table.</p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+              {report.qualifiedList.map(q => {
+                const isClaimed = claimedCodes.includes(q.program.code);
+                return (
+                  <button
+                    type="button" key={q.program.code} onClick={() => toggleClaimedCode(q.program.code)}
+                    className={`p-4 rounded-xl border font-mono text-left transition flex justify-between items-center ${
+                      isClaimed ? 'border-[#ccff00] bg-[#ccff00]/10 text-white font-bold' : 'border-[#1f1f24] bg-[#121216] text-[#a1a1aa]'
+                    }`}
+                  >
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Total Belum Dituntut</span>
-                      <h4 className="text-2xl font-black text-rose-950">
-                        RM {report.qualifiedList.filter(q => !claimedCodes.includes(q.program.code)).reduce((a, b) => a + b.estimatedAnnualValue, 0).toLocaleString()} / tahun
-                      </h4>
+                      <span className="block text-sm">{q.program.name}</span>
+                      <span className="text-xs text-[#ccff00]">RM {q.estimatedAnnualValue}/YR</span>
                     </div>
-                    <span className="text-xs bg-rose-600 text-white font-bold px-3 py-1.5 rounded-full">
-                      Tindakan Segera Diperlukan
-                    </span>
-                  </div>
-
-                  {report.qualifiedList.filter(q => !claimedCodes.includes(q.program.code)).map((item) => (
-                    <div key={item.program.code} className="p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-4">
-                      <div>
-                        <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">{item.program.category}</span>
-                        <h5 className="text-base font-bold text-slate-900">{item.program.name}</h5>
-                        <p className="text-xs text-slate-600 mt-1">{lang === 'bm' ? item.explanationBm : item.explanationEn}</p>
-                      </div>
-                      <a
-                        href={item.program.applyUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold whitespace-nowrap shadow-sm"
-                      >
-                        Tuntut Sekarang →
-                      </a>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isClaimed ? 'bg-[#ccff00] text-black' : 'border border-[#3f3f46]'}`}>
+                      {isClaimed && '✓'}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-8 text-center">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
-                  <h4 className="text-lg font-bold text-emerald-950">Tahniah! Anda telah menuntut semua subsidi yang layak.</h4>
-                  <p className="text-xs text-emerald-700 mt-1">Tiada wang bantuan kerajaan yang terlepas berdasarkan profil anda.</p>
-                </div>
-              )}
+                  </button>
+                );
+              })}
             </div>
+
+            {report.qualifiedList.filter(q => !claimedCodes.includes(q.program.code)).length > 0 && (
+              <div className="mt-8 p-6 bg-[#ff003c]/10 border border-[#ff003c]/40 rounded-xl text-[#ff809d]">
+                <h3 className="text-lg font-bold font-mono uppercase">🚨 UNCLAIMED MONEY DETECTED</h3>
+                <p className="text-xs mt-1">You qualify for RM {report.qualifiedList.filter(q => !claimedCodes.includes(q.program.code)).reduce((a,b)=>a+b.estimatedAnnualValue,0).toLocaleString()} per year that you haven't claimed yet!</p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* TAB 3: PAYOUT CALENDAR */}
-        {activeTab === 'calendar' && report && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm max-w-5xl mx-auto">
-            <div className="flex items-center gap-3 pb-6 border-b border-slate-100">
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                <Calendar className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {lang === 'bm' ? 'Kalendar Bayaran & Tarikh Tutup 2026' : '2026 Payout & Deadline Timeline'}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {lang === 'bm' ? 'Jadual rasmi pengagihan fasa STR, SARA, BAP dan pembukaan permohonan baru.' : 'Official disbursement schedule and appeal deadlines across 2026.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 relative pl-6 border-l-2 border-blue-200 space-y-8">
-              {report.calendarEvents.map((evt, idx) => (
-                <div key={idx} className="relative group">
-                  <div className="absolute -left-[31px] top-1.5 w-4 h-4 rounded-full bg-blue-600 border-4 border-white shadow-sm" />
-                  <div className="bg-slate-50 hover:bg-slate-100/80 rounded-2xl p-5 border border-slate-200 transition">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                      <span className="text-xs font-extrabold uppercase tracking-wider text-blue-600 bg-blue-100/60 px-2.5 py-1 rounded-full">
-                        {evt.month} ({evt.dateRange})
-                      </span>
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
-                        evt.type === 'Payout' ? 'bg-emerald-100 text-emerald-800' :
-                        evt.type === 'Deadline' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {evt.type === 'Payout' ? '💰 Pengagihan Bayaran' : evt.type === 'Deadline' ? '⚠️ Tarikh Tutup' : '🚀 Pembukaan Mohon'}
-                      </span>
-                    </div>
-                    <h4 className="text-base font-bold text-slate-900">{evt.programName}</h4>
-                    <p className="text-sm font-medium text-slate-700 mt-1">{evt.phaseOrAction}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: DOCUMENT CHECKLIST */}
-        {activeTab === 'docs' && report && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm max-w-4xl mx-auto">
-            <div className="flex items-center gap-3 pb-6 border-b border-slate-100">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                <FileText className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {lang === 'bm' ? 'Panduan Dokumen & Langkah Tuntutan' : 'Document Checklist & Step-by-Step Guide'}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {lang === 'bm' ? 'Sediakan dokumen berikut sebelum mengakses portal rasmi kerajaan.' : 'Prepare these exact supporting documents before filling out application forms.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-6">
-              {report.documentChecklist.map((group, idx) => (
-                <div key={idx} className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50">
-                  <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                    {group.category}
-                  </h3>
-                  <ul className="space-y-2 pl-6 list-disc text-sm text-slate-700 font-medium">
-                    {group.documents.map((doc, i) => (
-                      <li key={i}>{doc}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 p-6 bg-blue-900 text-white rounded-2xl shadow-sm">
-              <h4 className="text-lg font-bold mb-2 flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-amber-400" />
-                {lang === 'bm' ? 'Langkah-langgan Permohonan STR / SARA Secara Dalam Talian:' : 'Online Step-by-Step STR / SARA Application:'}
-              </h4>
-              <ol className="list-decimal pl-5 space-y-2 text-xs sm:text-sm text-slate-200">
-                <li>Layari portal rasmi LHDNM di <a href="https://bantuantunai.hasil.gov.my" target="_blank" className="underline text-amber-300">bantuantunai.hasil.gov.my</a>.</li>
-                <li>Log masuk menggunakan nombor MyKad dan kata laluan. Jika pemohon baru, klik <strong>Permohonan Baru</strong>.</li>
-                <li>Isi maklumat peribadi, nombor akaun bank yang aktif (wajib atas nama sendiri), dan maklumat tanggungan/anak.</li>
-                <li>Muat naik salinan MyKad pemohon/pasangan dan sijil lahir anak dalam format PDF/JPG.</li>
-                <li>Semak semua maklumat dengan tepat dan klik <strong>Hantar</strong>. Simpan salinan pengesahan permohonan.</li>
-              </ol>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: LIVE OPENDOSM DATA */}
+        {/* TAB 3: OPENDOSM DATA */}
         {activeTab === 'opendosm' && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm max-w-6xl mx-auto space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-100 gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                  <BarChart3 className="w-6 h-6 text-blue-600" />
-                  {lang === 'bm' ? 'Petunjuk Ekonomi Malaysia (OpenDOSM & PasarAPI)' : 'Malaysia Economic Dashboard (OpenDOSM & PasarAPI)'}
-                </h2>
-                <p className="text-sm text-slate-500 mt-1">
-                  {lang === 'bm'
-                    ? 'Data rasmi dari Jabatan Perangkaan Malaysia (DOSM) untuk penentuan had miskin tegar dan kadar B40/M40.'
-                    : 'Official live figures from Department of Statistics Malaysia for poverty thresholds and income benchmarks.'}
-                </p>
-              </div>
-              <div className="bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700">
-                Sumber Data: data.gov.my catalogue
-              </div>
-            </div>
+          <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-8 max-w-6xl mx-auto neon-border">
+            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">// LIVE MALAYSIA ECONOMIC TELEMETRY</h2>
+            <p className="text-sm text-[#888891] mt-1">Real-time OpenDOSM API household income and inflation metrics.</p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-5 rounded-2xl bg-blue-50 border border-blue-200/60">
-                <span className="text-xs font-bold text-blue-800 uppercase tracking-wider block">Median Pendapatan Negara</span>
-                <span className="text-2xl font-black text-blue-950 block mt-1">RM 6,338</span>
-                <span className="text-xs text-blue-600 block mt-0.5">DOSM Isi Rumah Malaysia</span>
-              </div>
-              <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200/60">
-                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">Negeri Pendapatan Tertinggi</span>
-                <span className="text-2xl font-black text-amber-950 block mt-1">{snapshot.summary.highestMedianState.state}</span>
-                <span className="text-xs text-amber-700 block mt-0.5">Median RM {snapshot.summary.highestMedianState.amount.toLocaleString()}</span>
-              </div>
-              <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200/60">
-                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">Indeks Harga Pengguna (CPI B40)</span>
-                <span className="text-2xl font-black text-emerald-950 block mt-1">{snapshot.summary.latestCpiOverall} pt</span>
-                <span className="text-xs text-emerald-700 block mt-0.5">Mei 2026 (Indeks Keseluruhan)</span>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-base font-bold text-slate-900 mb-4">
-                {lang === 'bm' ? 'Perbandingan Pendapatan Median Negeri vs Pendapatan Anda' : 'State Median Household Income vs Your Profile'}
-              </h3>
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
-                    <XAxis dataKey="name" angle={-30} textAnchor="end" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip formatter={(val: any) => [`RM ${Number(val).toLocaleString()}`, 'Pendapatan']} />
-                    <ReferenceLine y={monthlyIncome} label="Pendapatan Anda" stroke="#e11d48" strokeWidth={2} strokeDasharray="4 4" />
-                    <Bar dataKey="median" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="h-80 w-full mt-8">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <XAxis dataKey="name" stroke="#888891" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#888891" />
+                  <Tooltip contentStyle={{ backgroundColor: '#050505', borderColor: '#ccff00', color: '#ccff00' }} />
+                  <ReferenceLine y={monthlyIncome} label="YOUR INCOME" stroke="#ff003c" strokeDasharray="3 3" />
+                  <Bar dataKey="median" fill="#ccff00" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}
 
-        {/* TAB 6: ALERT SIGNUP */}
-        {activeTab === 'alerts' && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm max-w-2xl mx-auto">
-            <div className="flex items-center gap-3 pb-6 border-b border-slate-100">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                <Bell className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {lang === 'bm' ? 'Langgan Peringatan Tarikh Tutup (Privacy-First)' : 'Deadline & New Aid Alerts'}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {lang === 'bm' ? 'Kami akan menghantar SMS/E-mel bila permohonan baru dibuka atau tarikh tutup hampir.' : 'Receive SMS/Email reminders when new cohorts open. Contact info stored as SHA-256 hash.'}
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleAlertSignup} className="mt-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  {lang === 'bm' ? 'Kaedah Notifikasi' : 'Notification Method'}
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                    <input type="radio" name="contactType" checked={contactType === 'phone'} onChange={() => setContactType('phone')} className="accent-blue-600" />
-                    SMS / WhatsApp (Nombor Telefon)
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                    <input type="radio" name="contactType" checked={contactType === 'email'} onChange={() => setContactType('email')} className="accent-blue-600" />
-                    E-mel
-                  </label>
+        {/* TAB 4: CALENDAR */}
+        {activeTab === 'calendar' && report && (
+          <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-8 max-w-4xl mx-auto neon-border space-y-4">
+            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">// 2026 DISBURSEMENT TIMELINE</h2>
+            {report.calendarEvents.map((evt, idx) => (
+              <div key={idx} className="p-4 bg-[#121216] border border-[#27272e] rounded-xl flex justify-between items-center font-mono">
+                <div>
+                  <span className="text-xs text-[#ccff00] font-bold">{evt.month} ({evt.dateRange})</span>
+                  <h4 className="text-base text-white font-bold mt-1">{evt.programName}</h4>
+                  <p className="text-xs text-[#888891]">{evt.phaseOrAction}</p>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  {contactType === 'phone' ? 'Nombor Telefon (contoh: 0123456789)' : 'Alamat E-mel'}
-                </label>
-                <input
-                  type={contactType === 'phone' ? 'tel' : 'email'}
-                  required
-                  placeholder={contactType === 'phone' ? '012-345 6789' : 'nama@gmail.com'}
-                  value={contactInput}
-                  onChange={(e) => setContactInput(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-600 flex items-start gap-2.5">
-                <Lock className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <span>
-                  <strong>Jaminan Privasi Data:</strong> Nombor telefon atau e-mel anda di-hash dengan algoritma kriptografi SHA-256 sebelum disimpan di dalam pangkalan data. Identiti sebenar tidak boleh diakses oleh pihak ketiga.
+                <span className="px-3 py-1 bg-[#ccff00]/10 border border-[#ccff00] text-[#ccff00] rounded text-xs">
+                  {evt.type.toUpperCase()}
                 </span>
               </div>
-
-              {alertStatus.message && (
-                <div className={`p-4 rounded-xl text-sm font-medium ${
-                  alertStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
-                  alertStatus.type === 'error' ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-blue-50 text-blue-800'
-                }`}>
-                  {alertStatus.message}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={alertStatus.type === 'loading'}
-                className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition shadow-md flex items-center justify-center gap-2"
-              >
-                {alertStatus.type === 'loading' ? 'Mendaftar...' : 'Aktifkan Peringatan Bantuan →'}
-              </button>
-            </form>
+            ))}
           </div>
         )}
+
       </div>
     </div>
   );

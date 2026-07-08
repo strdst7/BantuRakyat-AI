@@ -2,14 +2,23 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Check, X, RefreshCw, BarChart2, ShieldAlert, ArrowLeft, ToggleLeft, ToggleRight, Edit2 } from 'lucide-react';
+import { Plus, Check, X, RefreshCw, BarChart2, ShieldAlert, ArrowLeft, ToggleLeft, ToggleRight, Edit2, Sun, Moon, Eye } from 'lucide-react';
 import { AidProgram } from '../../db/schema';
+
+type VisualTheme = 'dark' | 'light' | 'contrast';
+
+const THEME_OPTIONS: { id: VisualTheme; label: string; shortLabel: string; icon: React.ElementType }[] = [
+  { id: 'dark', label: 'Dark mode', shortLabel: 'Dark', icon: Moon },
+  { id: 'light', label: 'Light mode', shortLabel: 'Light', icon: Sun },
+  { id: 'contrast', label: 'High contrast accessibility mode', shortLabel: 'A11y', icon: Eye },
+];
 
 export default function AdminPage() {
   const [programs, setPrograms] = useState<AidProgram[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'programs' | 'add' | 'stats'>('programs');
+  const [visualTheme, setVisualTheme] = useState<VisualTheme>('dark');
 
   // Add Program form state
   const [code, setCode] = useState('');
@@ -47,6 +56,23 @@ export default function AdminPage() {
   useEffect(() => {
     fetchAdminData();
   }, []);
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem('banturakyat-visual-theme') as VisualTheme | null;
+    if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'contrast') {
+      setVisualTheme(savedTheme);
+      return;
+    }
+    if (window.matchMedia?.('(prefers-color-scheme: light)').matches) {
+      setVisualTheme('light');
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = visualTheme;
+    document.documentElement.style.colorScheme = visualTheme === 'light' ? 'light' : 'dark';
+    window.localStorage.setItem('banturakyat-visual-theme', visualTheme);
+  }, [visualTheme]);
 
   const handleToggleActive = async (prog: AidProgram) => {
     try {
@@ -103,7 +129,13 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 pb-20">
+    <div className={`min-h-screen bg-slate-900 text-slate-100 pb-20 ${visualTheme === 'light' ? 'theme-light' : visualTheme === 'contrast' ? 'theme-contrast' : 'theme-dark'}`}>
+      <a
+        href="#admin-dashboard"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[10000] focus:px-4 focus:py-3 focus:rounded-lg focus:bg-amber-400 focus:text-slate-950 focus:font-bold"
+      >
+        Skip to admin dashboard content
+      </a>
       {/* Admin Header */}
       <div className="bg-slate-950 border-b border-slate-800 py-6 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -115,17 +147,40 @@ export default function AdminPage() {
               ⚙️ BantuRakyat Admin Dashboard
             </h1>
           </div>
-          <button
-            onClick={fetchAdminData}
-            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold flex items-center gap-1.5 transition self-start sm:self-auto"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Sync Data
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div role="group" aria-label="Accessible visual theme switcher" className="flex items-center rounded-full border border-slate-700 bg-slate-900 p-1">
+              {THEME_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                const isActive = visualTheme === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setVisualTheme(option.id)}
+                    aria-pressed={isActive}
+                    aria-label={option.label}
+                    className={`min-h-8 px-2.5 rounded-full text-[11px] font-black uppercase tracking-wider transition flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 ${
+                      isActive ? 'bg-amber-400 text-slate-950' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline">{option.shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={fetchAdminData}
+              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold flex items-center gap-1.5 transition self-start sm:self-auto"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Sync Data
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 mt-8">
+      <div id="admin-dashboard" className="max-w-7xl mx-auto px-4 sm:px-8 mt-8" tabIndex={-1}>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
           <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Program Aktif</span>
@@ -293,3 +348,4 @@ export default function AdminPage() {
     </div>
   );
 }
+

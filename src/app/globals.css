@@ -167,6 +167,7 @@
   border-color: #3f5900 !important;
 }
 
+.theme-light.text-white,
 .theme-light [class*="text-white"] {
   color: #0f172a !important;
 }
@@ -201,6 +202,7 @@
 .theme-light [class*="text-slate-200"],
 .theme-light [class*="text-slate-300"],
 .theme-light [class*="text-slate-400"],
+.theme-light.text-white,
 .theme-light [class*="text-white"] {
   color: #0f172a !important;
 }

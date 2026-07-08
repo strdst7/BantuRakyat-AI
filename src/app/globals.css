@@ -21,7 +21,6 @@
 /* Custom glowing effects */
 .neon-text {
   color: #ccff00;
-  text-shadow: 0 0 20px rgba(204, 255, 0, 0.4);
   text-shadow: 0 0 25px rgba(204, 255, 0, 0.5);
 }
 
@@ -32,7 +31,6 @@
 
 .neon-border:hover {
   border-color: #ccff00;
-  box-shadow: 0 0 15px rgba(204, 255, 0, 0.15);
   box-shadow: 0 0 25px rgba(204, 255, 0, 0.18);
   transform: translateY(-2px);
 }
@@ -90,20 +88,25 @@
   animation: marquee 25s linear infinite;
 }
 
+/* Autopilot radar sweep */
+@keyframes radarSweep {
+  0% { transform: rotate(0deg); opacity: 0.3; }
+  50% { opacity: 0.75; }
+  100% { transform: rotate(360deg); opacity: 0.3; }
+}
+
+.radar-sweep {
+  background: conic-gradient(from 0deg, rgba(204, 255, 0, 0.34), rgba(204, 255, 0, 0.08) 18%, transparent 32%, transparent 100%);
+  filter: blur(0.2px) drop-shadow(0 0 16px rgba(204, 255, 0, 0.25));
+  animation: radarSweep 5.5s linear infinite;
+  mix-blend-mode: screen;
+}
+
 /* Hide scrollbar */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
-
-.neon-btn {
-  background-color: #ccff00;
-  color: #050505;
-  font-weight: 800;
-  transition: all 0.2s ease;
-}
-
-.neon-btn:hover {
-  background-color: #b8e600;
-  box-shadow: 0 0 20px rgba(204, 255, 0, 0.5);
-  transform: translateY(-1px);
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

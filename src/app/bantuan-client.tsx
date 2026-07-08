@@ -52,6 +52,10 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   const [report, setReport] = useState<EligibilityReport | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [lang, setLang] = useState<'bm' | 'en'>('bm');
+  const [copiedPlan, setCopiedPlan] = useState<boolean>(false);
+  const [alertContact, setAlertContact] = useState<string>('');
+  const [alertStatus, setAlertStatus] = useState<string | null>(null);
+  const [isSavingAlert, setIsSavingAlert] = useState<boolean>(false);
 
   // Interactive Cursor State (Gleec UX)
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
@@ -187,6 +191,86 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
     median: item.incomeMedian,
   }));
 
+  const autopilot = React.useMemo(() => {
+    if (!report) return null;
+    const unclaimedList = report.qualifiedList.filter(item => !claimedCodes.includes(item.program.code));
+    const sortedMissing = [...unclaimedList].sort((a, b) => b.estimatedAnnualValue - a.estimatedAnnualValue);
+    const topMissions = sortedMissing.slice(0, 4);
+    const docsCount = report.documentChecklist.reduce((acc, group) => acc + group.documents.length, 0);
+    const currentMonth = new Date().getMonth() + 1;
+    const futureEvents = report.calendarEvents
+      .filter(evt => evt.monthIdx >= currentMonth)
+      .sort((a, b) => a.monthIdx - b.monthIdx);
+    const upcomingEvents = (futureEvents.length ? futureEvents : report.calendarEvents)
+      .slice(0, 3);
+    const readinessScore = Math.min(98, 38 + report.qualifiedList.length * 7 + docsCount * 2 + (topMissions.length > 0 ? 9 : 0));
+    const annualMissing = sortedMissing.reduce((acc, item) => acc + item.estimatedAnnualValue, 0);
+    const dailyLeak = Math.max(0, Math.round(annualMissing / 365));
+    const incomeGapToStateMedian = report.stateProfile.medianIncome - monthlyIncome;
+    const urgency = annualMissing >= 5000 ? 'CRITICAL' : annualMissing >= 2000 ? 'HIGH' : annualMissing > 0 ? 'MEDIUM' : 'CLEAR';
+
+    return {
+      topMissions,
+      upcomingEvents,
+      readinessScore,
+      annualMissing,
+      dailyLeak,
+      incomeGapToStateMedian,
+      urgency,
+      docsCount,
+    };
+  }, [report, monthlyIncome, claimedCodes]);
+
+  const copyAutopilotPlan = async () => {
+    if (!report || !autopilot) return;
+    const missionLines = (autopilot.topMissions.length ? autopilot.topMissions : report.qualifiedList.slice(0, 3))
+      .map((item, idx) => `${idx + 1}. ${item.program.name} — RM${item.estimatedAnnualValue.toLocaleString()}/tahun — ${item.program.applyUrl}`)
+      .join('\n');
+    const docs = report.documentChecklist
+      .map(group => `\n${group.category}:\n- ${group.documents.join('\n- ')}`)
+      .join('\n');
+    const text = `BantuRakyat AI Claim Autopilot\nScan ID: ${report.scanId}\nNegeri: ${state}\nPendapatan isi rumah: RM${monthlyIncome.toLocaleString()}\nPotensi belum dituntut: RM${autopilot.annualMissing.toLocaleString()}/tahun\n\nPriority mission:\n${missionLines}\n\nDokumen siap sedia:${docs}\n\nNota: Semak semula syarat rasmi di portal agensi sebelum hantar permohonan.`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedPlan(true);
+      setTimeout(() => setCopiedPlan(false), 2500);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const subscribeAutopilotAlert = async () => {
+    if (!alertContact.trim()) {
+      setAlertStatus('Masukkan nombor telefon atau e-mel dulu, boss.');
+      return;
+    }
+    setIsSavingAlert(true);
+    setAlertStatus(null);
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact: alertContact,
+          contactType: alertContact.includes('@') ? 'email' : 'phone',
+          state,
+          incomeBracket: monthlyIncome <= 4850 ? 'B40 (< RM4,850)' : monthlyIncome <= 10970 ? 'M40 (RM4,851 - RM10,970)' : 'Above M40',
+          notifyDeadlines: true,
+          notifyNewPrograms: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Gagal daftar alert');
+      setAlertStatus(data?.message || `Reminder encrypted & armed for ${data?.maskedContact || 'your contact'}.`);
+      setAlertContact('');
+    } catch (e: any) {
+      setAlertStatus(e?.message || 'Gagal daftar alert. Cuba lagi ya.');
+    } finally {
+      setIsSavingAlert(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-20 selection:bg-[#ccff00] selection:text-black relative">
       
@@ -249,6 +333,14 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
               className={`hover:text-white transition pb-1 ${activeTab === 'opendosm' ? 'text-[#ccff00] border-b-2 border-[#ccff00]' : ''}`}
             >
               Intelligence
+            </button>
+            <button
+              onClick={() => setActiveTab('docs')}
+              onMouseEnter={() => setCursorLabel('AUTOPILOT')}
+              onMouseLeave={() => setCursorLabel(null)}
+              className={`hover:text-white transition pb-1 ${activeTab === 'docs' ? 'text-[#ccff00] border-b-2 border-[#ccff00]' : ''}`}
+            >
+              Autopilot
             </button>
             <button
               onClick={() => setActiveTab('calendar')}
@@ -482,6 +574,13 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
                   <h3 className="text-3xl font-black font-mono text-white">
                     RM {report.totalAnnualQualifiedValue.toLocaleString()} <span className="text-xs text-[#888891] font-normal">/ YR EST.</span>
                   </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('docs')}
+                    className="mt-4 w-full py-3 rounded-lg border border-[#ccff00]/50 bg-[#ccff00]/10 text-[#ccff00] hover:bg-[#ccff00] hover:text-black transition font-mono text-xs font-black uppercase tracking-widest"
+                  >
+                    Launch Claim Autopilot ✦
+                  </button>
                   
                   <div className="space-y-3 mt-5 max-h-80 overflow-y-auto pr-1">
                     {report.qualifiedList.map(item => (
@@ -551,7 +650,214 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
           </div>
         )}
 
-        {/* TAB 3: OPENDOSM DATA */}
+        {/* TAB 3: CLAIM AUTOPILOT WOW FEATURE */}
+        {activeTab === 'docs' && report && autopilot && (
+          <div className="max-w-7xl mx-auto space-y-6">
+            <div className="bg-[#0c0c0e] border border-[#ccff00]/40 rounded-2xl p-6 sm:p-8 neon-border overflow-hidden relative">
+              <div className="absolute -right-24 -top-24 w-72 h-72 rounded-full bg-[#ccff00]/10 blur-3xl" />
+              <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                <div>
+                  <span className="text-xs font-mono tracking-[0.35em] text-[#ccff00] uppercase">// WOW MODULE ENABLED</span>
+                  <h2 className="text-4xl sm:text-6xl font-black font-mono uppercase leading-none mt-3">
+                    CLAIM <span className="neon-text">AUTOPILOT</span>
+                  </h2>
+                  <p className="text-sm text-[#a1a1aa] max-w-2xl mt-4 leading-relaxed">
+                    AI mission board yang susun bantuan paling bernilai, dokumen perlu siap, deadline terdekat dan encrypted reminder — semua based on scan profile anda. No fluff, terus action.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-3 min-w-[320px]">
+                  <div className="p-4 rounded-xl bg-[#121216] border border-[#27272e] text-center">
+                    <span className="block text-[10px] font-mono text-[#888891] uppercase">Unclaimed</span>
+                    <strong className="block text-xl font-black font-mono text-[#ccff00]">RM{autopilot.annualMissing.toLocaleString()}</strong>
+                  </div>
+                  <div className="p-4 rounded-xl bg-[#121216] border border-[#27272e] text-center">
+                    <span className="block text-[10px] font-mono text-[#888891] uppercase">Readiness</span>
+                    <strong className="block text-xl font-black font-mono text-white">{autopilot.readinessScore}%</strong>
+                  </div>
+                  <div className="p-4 rounded-xl bg-[#121216] border border-[#27272e] text-center">
+                    <span className="block text-[10px] font-mono text-[#888891] uppercase">Leak / Day</span>
+                    <strong className="block text-xl font-black font-mono text-[#ff809d]">RM{autopilot.dailyLeak}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 space-y-6">
+                <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 sm:p-8 neon-border">
+                  <div className="flex flex-col md:flex-row gap-8 items-center">
+                    <div className="relative w-[300px] h-[300px] shrink-0">
+                      <div className="radar-sweep absolute inset-3 rounded-full pointer-events-none" />
+                      <svg viewBox="0 0 300 300" className="w-full h-full drop-shadow-[0_0_24px_rgba(204,255,0,0.18)] relative z-10">
+                        <defs>
+                          <radialGradient id="radarGlow" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stopColor="#ccff00" stopOpacity="0.22" />
+                            <stop offset="100%" stopColor="#ccff00" stopOpacity="0" />
+                          </radialGradient>
+                        </defs>
+                        <circle cx="150" cy="150" r="138" fill="url(#radarGlow)" />
+                        {[45, 80, 115, 140].map(r => (
+                          <circle key={r} cx="150" cy="150" r={r} fill="none" stroke="rgba(204,255,0,0.18)" strokeWidth="1" strokeDasharray="6 8" />
+                        ))}
+                        <line x1="150" y1="12" x2="150" y2="288" stroke="rgba(204,255,0,0.12)" />
+                        <line x1="12" y1="150" x2="288" y2="150" stroke="rgba(204,255,0,0.12)" />
+                        {(autopilot.topMissions.length ? autopilot.topMissions : report.qualifiedList.slice(0, 4)).map((mission, idx, arr) => {
+                          const angle = (idx / Math.max(arr.length, 1)) * Math.PI * 2 - Math.PI / 2;
+                          const x = 150 + Math.cos(angle) * 108;
+                          const y = 150 + Math.sin(angle) * 108;
+                          return (
+                            <g key={mission.program.code}>
+                              <line x1="150" y1="150" x2={x} y2={y} stroke="rgba(204,255,0,0.35)" strokeWidth="1" />
+                              <circle cx={x} cy={y} r="10" fill="#ccff00" className="animate-pulse" />
+                              <circle cx={x} cy={y} r="19" fill="none" stroke="rgba(204,255,0,0.35)" />
+                              <text x={x} y={y + 34} textAnchor="middle" fill="#ccff00" fontSize="9" fontFamily="monospace" fontWeight="800">
+                                {mission.program.code.replace('_2026', '').slice(0, 10)}
+                              </text>
+                            </g>
+                          );
+                        })}
+                        <circle cx="150" cy="150" r="42" fill="#050505" stroke="#ccff00" strokeWidth="2" />
+                        <text x="150" y="143" textAnchor="middle" fill="#ccff00" fontSize="11" fontFamily="monospace" fontWeight="800">BR-AI</text>
+                        <text x="150" y="160" textAnchor="middle" fill="#ffffff" fontSize="18" fontFamily="monospace" fontWeight="900">{autopilot.urgency}</text>
+                      </svg>
+                    </div>
+
+                    <div className="flex-1 w-full">
+                      <span className="text-xs font-mono text-[#888891] uppercase tracking-widest">Personal subsidy radar</span>
+                      <h3 className="text-3xl font-black font-mono text-white mt-2">{autopilot.topMissions.length} mission belum dituntut</h3>
+                      <p className="text-sm text-[#a1a1aa] mt-3 leading-relaxed">
+                        Pendapatan anda {autopilot.incomeGapToStateMedian >= 0 ? 'di bawah' : 'di atas'} median negeri sebanyak RM{Math.abs(autopilot.incomeGapToStateMedian).toLocaleString()}. Ini membantu AI prioritize bantuan yang paling relevan untuk {state}.
+                      </p>
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={copyAutopilotPlan}
+                          onMouseEnter={() => setCursorLabel('COPY PLAN')}
+                          onMouseLeave={() => setCursorLabel(null)}
+                          className="neon-btn px-5 py-3 rounded-lg font-mono text-xs uppercase tracking-widest"
+                        >
+                          {copiedPlan ? 'Copied to clipboard ✓' : 'Copy Action Plan'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('missing')}
+                          className="px-5 py-3 rounded-lg border border-[#27272e] bg-[#121216] hover:border-[#ccff00] text-[#ccff00] font-mono text-xs uppercase tracking-widest transition"
+                        >
+                          Review Claims
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(autopilot.topMissions.length ? autopilot.topMissions : report.qualifiedList.slice(0, 4)).map((mission, idx) => (
+                    <div key={mission.program.code} className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-5 hover:border-[#ccff00] transition group">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <span className="text-[10px] font-mono text-[#ccff00] uppercase tracking-widest">Mission 0{idx + 1}</span>
+                          <h4 className="text-lg font-black font-mono text-white mt-1 leading-tight">{mission.program.name}</h4>
+                        </div>
+                        <span className="px-2.5 py-1 rounded bg-[#ccff00] text-black text-xs font-black font-mono whitespace-nowrap">RM{mission.estimatedAnnualValue.toLocaleString()}</span>
+                      </div>
+                      <p className="text-xs text-[#a1a1aa] leading-relaxed mt-3">
+                        {lang === 'bm' ? mission.explanationBm : mission.explanationEn}
+                      </p>
+                      <div className="mt-4 space-y-2">
+                        {mission.matchReasons.slice(0, 2).map(reason => (
+                          <div key={reason} className="flex items-center gap-2 text-[11px] font-mono text-[#888891]">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#ccff00]" /> {reason}
+                          </div>
+                        ))}
+                      </div>
+                      <a
+                        href={mission.program.applyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-5 inline-flex items-center gap-1 text-xs font-mono text-[#ccff00] uppercase tracking-widest group-hover:underline"
+                      >
+                        Open official portal <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="lg:col-span-4 space-y-6">
+                <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 neon-border">
+                  <span className="text-xs font-mono text-[#ccff00] uppercase tracking-widest">Encrypted reminder relay</span>
+                  <p className="text-xs text-[#888891] mt-2 leading-relaxed">
+                    Simpan contact sebagai SHA-256 hash. App hanya paparkan masked contact — privacy first.
+                  </p>
+                  <div className="mt-4 flex gap-2">
+                    <input
+                      value={alertContact}
+                      onChange={(e) => setAlertContact(e.target.value)}
+                      placeholder="0123456789 / email"
+                      className="min-w-0 flex-1 px-3 py-3 rounded-lg bg-[#121216] border border-[#27272e] text-white text-sm outline-none focus:border-[#ccff00]"
+                    />
+                    <button
+                      type="button"
+                      onClick={subscribeAutopilotAlert}
+                      disabled={isSavingAlert}
+                      className="neon-btn px-4 py-3 rounded-lg font-mono text-xs uppercase"
+                    >
+                      {isSavingAlert ? 'Sync...' : 'Arm'}
+                    </button>
+                  </div>
+                  {alertStatus && <p className="text-xs text-[#a1a1aa] mt-3 leading-relaxed">{alertStatus}</p>}
+                </div>
+
+                <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 neon-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono text-[#ccff00] uppercase tracking-widest">Document vault</span>
+                    <span className="text-[10px] font-mono text-[#888891]">{autopilot.docsCount} FILES</span>
+                  </div>
+                  <div className="space-y-4 mt-5 max-h-80 overflow-y-auto pr-1">
+                    {report.documentChecklist.map(group => (
+                      <div key={group.category}>
+                        <h4 className="text-xs font-bold text-white uppercase mb-2">{group.category}</h4>
+                        <div className="space-y-2">
+                          {group.documents.map(doc => (
+                            <div key={doc} className="flex items-start gap-2 text-xs text-[#a1a1aa]">
+                              <span className="mt-0.5 w-4 h-4 rounded border border-[#ccff00]/60 bg-[#ccff00]/10 flex items-center justify-center text-[#ccff00]">✓</span>
+                              <span>{doc}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 neon-border">
+                  <span className="text-xs font-mono text-[#ccff00] uppercase tracking-widest">Next payout windows</span>
+                  <div className="space-y-3 mt-5">
+                    {autopilot.upcomingEvents.map(evt => (
+                      <div key={`${evt.programCode}-${evt.dateRange}`} className="p-3 rounded-xl bg-[#121216] border border-[#27272e]">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-mono text-white font-bold">{evt.dateRange}</span>
+                          <span className="text-[10px] font-mono text-[#ccff00]">{evt.type.toUpperCase()}</span>
+                        </div>
+                        <p className="text-xs text-[#888891] mt-1">{evt.programName} — {evt.phaseOrAction}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'docs' && !report && (
+          <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-8 max-w-3xl mx-auto text-center neon-border">
+            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">Run scanner first</h2>
+            <p className="text-sm text-[#888891] mt-2">Autopilot needs your eligibility report before it can generate missions.</p>
+            <button onClick={() => setActiveTab('scanner')} className="neon-btn px-5 py-3 rounded-lg mt-5 font-mono text-xs uppercase">Back to Scanner</button>
+          </div>
+        )}
+
+        {/* TAB 4: OPENDOSM DATA */}
         {activeTab === 'opendosm' && (
           <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-8 max-w-6xl mx-auto neon-border">
             <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">// LIVE MALAYSIA ECONOMIC TELEMETRY</h2>

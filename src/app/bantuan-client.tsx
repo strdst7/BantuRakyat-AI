@@ -68,7 +68,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
 
   // Interactive Cursor State (Gleec UX)
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
-  const [cursorLabel, setCursorLabel] = useState<string | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Accessible visual theme: persists user choice and respects OS light preference on first visit.
@@ -308,19 +308,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
         Skip to dashboard content
       </a>
       
-      {/* 1. CUSTOM INTERACTIVE CURSOR (GLEEC / IMMERSIVE GARDEN UX) */}
-      <div
-        className="custom-cursor hidden md:flex items-center justify-center rounded-full border border-[#ccff00] bg-[#050505]/80 backdrop-blur-sm text-[#ccff00] font-mono text-[10px] uppercase font-bold transition-all duration-150 shadow-[0_0_15px_rgba(204,255,0,0.4)]"
-        style={{
-          left: `${cursorPos.x}px`,
-          top: `${cursorPos.y}px`,
-          width: cursorLabel ? '110px' : '28px',
-          height: cursorLabel ? '110px' : '28px',
-          opacity: cursorPos.x < 0 ? 0 : 1,
-        }}
-      >
-        {cursorLabel && <span className="text-center px-2 leading-tight">{cursorLabel}</span>}
-      </div>
+
 
       {/* 2. LIVE CYBER TELEMETRY TICKER BAR */}
       <div className="bg-[#0c0c0e] border-b border-[#1a1a1f] py-1.5 overflow-hidden text-[11px] font-mono text-[#888891]">
@@ -346,40 +334,35 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
           <div className="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-widest text-[#888891]">
             <button
               onClick={() => setActiveTab('scanner')}
-              onMouseEnter={() => setCursorLabel('SCANNER')}
-              onMouseLeave={() => setCursorLabel(null)}
+
               className={`hover:text-white transition pb-1 ${activeTab === 'scanner' ? 'text-white border-b-2 border-[#ccff00]' : ''}`}
             >
               Platform
             </button>
             <button
               onClick={() => setActiveTab('missing')}
-              onMouseEnter={() => setCursorLabel('IMPACT')}
-              onMouseLeave={() => setCursorLabel(null)}
+
               className={`hover:text-white transition pb-1 ${activeTab === 'missing' ? 'text-white border-b-2 border-[#ccff00]' : ''}`}
             >
               Impact
             </button>
             <button
               onClick={() => setActiveTab('opendosm')}
-              onMouseEnter={() => setCursorLabel('DOSM DATA')}
-              onMouseLeave={() => setCursorLabel(null)}
+
               className={`hover:text-white transition pb-1 ${activeTab === 'opendosm' ? 'text-[#ccff00] border-b-2 border-[#ccff00]' : ''}`}
             >
               Intelligence
             </button>
             <button
               onClick={() => setActiveTab('docs')}
-              onMouseEnter={() => setCursorLabel('AUTOPILOT')}
-              onMouseLeave={() => setCursorLabel(null)}
+
               className={`hover:text-white transition pb-1 ${activeTab === 'docs' ? 'text-[#ccff00] border-b-2 border-[#ccff00]' : ''}`}
             >
               Autopilot
             </button>
             <button
               onClick={() => setActiveTab('calendar')}
-              onMouseEnter={() => setCursorLabel('CALENDAR')}
-              onMouseLeave={() => setCursorLabel(null)}
+
               className={`hover:text-white transition pb-1 ${activeTab === 'calendar' ? 'text-white border-b-2 border-[#ccff00]' : ''}`}
             >
               Journal
@@ -421,8 +404,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
             </button>
             <button
               onClick={refreshPasarApi}
-              onMouseEnter={() => setCursorLabel('SYNC API')}
-              onMouseLeave={() => setCursorLabel(null)}
+
               className="neon-btn px-5 py-2 rounded text-xs uppercase tracking-wider flex items-center gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -458,8 +440,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
             {/* LEFT: SCANNER FORM IN OBSIDIAN CARD */}
             <div
               className="lg:col-span-7 bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 sm:p-8 neon-border"
-              onMouseEnter={() => setCursorLabel('ADJUST PROFILE')}
-              onMouseLeave={() => setCursorLabel(null)}
+
             >
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#1f1f24]">
                 <span className="text-xs font-mono tracking-widest text-[#ccff00] uppercase">
@@ -553,8 +534,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
 
                 <button
                   type="submit"
-                  onMouseEnter={() => setCursorLabel('EXECUTE >>')}
-                  onMouseLeave={() => setCursorLabel(null)}
+
                   className="neon-btn w-full py-4 rounded-lg font-mono tracking-widest uppercase text-sm flex items-center justify-center gap-2"
                 >
                   <Sparkles className="w-4 h-4" />
@@ -567,8 +547,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
             <div className="lg:col-span-5 space-y-6">
               <div
                 className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 sm:p-8 relative overflow-hidden neon-border"
-                onMouseEnter={() => setCursorLabel('TELEMETRY FLOW')}
-                onMouseLeave={() => setCursorLabel(null)}
+
               >
                 <span className="text-xs font-mono tracking-widest text-[#888891] uppercase block mb-6">
                   SYSTEM HEALTH // TELEMETRY
@@ -625,8 +604,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
               {report && (
                 <div
                   className="bg-[#0c0c0e] border border-[#ccff00]/40 rounded-2xl p-6 shadow-[0_0_25px_rgba(204,255,0,0.1)] transition-all"
-                  onMouseEnter={() => setCursorLabel('CLAIM NOW')}
-                  onMouseLeave={() => setCursorLabel(null)}
+
                 >
                   <span className="text-xs font-mono text-[#ccff00] block mb-1">
                     // DETECTED ELIGIBLE SUBSIDIES ({report.qualifiedList.length} PROGRAMS)
@@ -792,8 +770,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
                         <button
                           type="button"
                           onClick={copyAutopilotPlan}
-                          onMouseEnter={() => setCursorLabel('COPY PLAN')}
-                          onMouseLeave={() => setCursorLabel(null)}
+
                           className="neon-btn px-5 py-3 rounded-lg font-mono text-xs uppercase tracking-widest"
                         >
                           {copiedPlan ? 'Copied to clipboard ✓' : 'Copy Action Plan'}

@@ -21,6 +21,7 @@
 /* Custom glowing effects */
 .neon-text {
   color: #ccff00;
+  text-shadow: 0 0 20px rgba(204, 255, 0, 0.4);
   text-shadow: 0 0 25px rgba(204, 255, 0, 0.5);
 }
 
@@ -31,6 +32,7 @@
 
 .neon-border:hover {
   border-color: #ccff00;
+  box-shadow: 0 0 15px rgba(204, 255, 0, 0.15);
   box-shadow: 0 0 25px rgba(204, 255, 0, 0.18);
   transform: translateY(-2px);
 }
@@ -92,7 +94,16 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
-.scrollbar-none {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+.neon-btn {
+  background-color: #ccff00;
+  color: #050505;
+  font-weight: 800;
+  transition: all 0.2s ease;
+}
+
+.neon-btn:hover {
+  background-color: #b8e600;
+  box-shadow: 0 0 20px rgba(204, 255, 0, 0.5);
+  transform: translateY(-1px);
 }

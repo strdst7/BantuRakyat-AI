@@ -5,7 +5,7 @@ import {
   Sparkles, CheckCircle2, AlertCircle, Calendar, FileText,
   TrendingUp, BarChart3, RefreshCw, MapPin, ExternalLink,
   ShieldAlert, Bell, Lock, HelpCircle, Activity, Radio, Cpu,
-  ChevronRight, Play, Zap
+  ChevronRight, Play, Zap, Sun, Moon, Eye
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine
@@ -34,10 +34,19 @@ const TARGET_CATEGORIES = [
   { id: 'BELIA', label: 'Belia (18 - 30 Tahun)' },
 ];
 
+type VisualTheme = 'dark' | 'light' | 'contrast';
+
+const THEME_OPTIONS: { id: VisualTheme; label: string; shortLabel: string; description: string; icon: React.ElementType }[] = [
+  { id: 'dark', label: 'Dark mode', shortLabel: 'Dark', description: 'Tema gelap neon asal', icon: Moon },
+  { id: 'light', label: 'Light mode', shortLabel: 'Light', description: 'Tema cerah untuk pengguna low vision / silau malam', icon: Sun },
+  { id: 'contrast', label: 'High contrast mode', shortLabel: 'A11y', description: 'Kontras maksimum untuk kebolehcapaian skrin', icon: Eye },
+];
+
 export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   const [activeTab, setActiveTab] = useState<'scanner' | 'missing' | 'calendar' | 'docs' | 'opendosm' | 'alerts'>('scanner');
   const [snapshot, setSnapshot] = useState<PasarApiSnapshot>(initialSnapshot);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [visualTheme, setVisualTheme] = useState<VisualTheme>('dark');
 
   // Form State
   const [householdSize, setHouseholdSize] = useState<number>(4);
@@ -61,6 +70,25 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
   const [cursorLabel, setCursorLabel] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Accessible visual theme: persists user choice and respects OS light preference on first visit.
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem('banturakyat-visual-theme') as VisualTheme | null;
+    if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'contrast') {
+      setVisualTheme(savedTheme);
+      return;
+    }
+
+    if (window.matchMedia?.('(prefers-color-scheme: light)').matches) {
+      setVisualTheme('light');
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = visualTheme;
+    document.documentElement.style.colorScheme = visualTheme === 'light' ? 'light' : 'dark';
+    window.localStorage.setItem('banturakyat-visual-theme', visualTheme);
+  }, [visualTheme]);
 
   // Live Canvas Animation Loop for Telemetry Orbital Ring
   useEffect(() => {
@@ -272,7 +300,13 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pb-20 selection:bg-[#ccff00] selection:text-black relative">
+    <div className={`min-h-screen bg-[#050505] text-white pb-20 selection:bg-[#ccff00] selection:text-black relative ${visualTheme === 'light' ? 'theme-light' : visualTheme === 'contrast' ? 'theme-contrast' : 'theme-dark'}`}>
+      <a
+        href="#main-dashboard"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[10000] focus:px-4 focus:py-3 focus:rounded-lg focus:bg-[#ccff00] focus:text-black focus:font-mono focus:font-black focus:uppercase"
+      >
+        Skip to dashboard content
+      </a>
       
       {/* 1. CUSTOM INTERACTIVE CURSOR (GLEEC / IMMERSIVE GARDEN UX) */}
       <div
@@ -352,7 +386,33 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
             </button>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div
+              role="group"
+              aria-label="Accessible visual theme switcher"
+              className="flex items-center rounded-full border border-[#27272d] bg-[#141418] p-1"
+            >
+              {THEME_OPTIONS.map((option) => {
+                const Icon = option.icon;
+                const isActive = visualTheme === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setVisualTheme(option.id)}
+                    aria-pressed={isActive}
+                    aria-label={`${option.label}: ${option.description}`}
+                    title={option.description}
+                    className={`min-h-8 px-2.5 rounded-full text-[11px] font-mono font-black uppercase tracking-wider transition flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ccff00] ${
+                      isActive ? 'bg-[#ccff00] text-black' : 'text-[#a1a1aa] hover:text-white hover:bg-[#1f1f26]'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span className="hidden xl:inline">{option.shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
             <button
               onClick={() => setLang(lang === 'bm' ? 'en' : 'bm')}
               className="text-xs font-mono px-3 py-1.5 rounded bg-[#141418] border border-[#27272d] text-[#ccff00] hover:bg-[#1f1f26] transition"
@@ -391,7 +451,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
       </section>
 
       {/* 5. TELEMETRY & SYSTEM HEALTH WIDGET WITH CANVAS ANIMATION */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div id="main-dashboard" className="max-w-7xl mx-auto px-6 py-8" tabIndex={-1}>
         {activeTab === 'scanner' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             

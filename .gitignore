@@ -37,7 +37,8 @@ yarn-error.log*
 next-env.d.ts
 
 # pglite data
-/data/pglite_db
+/data/
+drizzle.config.local.ts
 
 # npm cache
 /.npm

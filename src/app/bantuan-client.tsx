@@ -66,8 +66,19 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   const [alertStatus, setAlertStatus] = useState<string | null>(null);
   const [isSavingAlert, setIsSavingAlert] = useState<boolean>(false);
 
-  // Interactive Cursor State (Gleec UX)
-  const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
+  // Everything the telemetry strip reports is derived from the actual snapshot.
+  const liveDatasets = snapshot.summary.liveDatasets ?? 0;
+  const liveCoverage = Math.round((liveDatasets / 2) * 100);
+  const lastSyncLabel = new Date(snapshot.fetchedAt).toLocaleTimeString('en-MY', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const statusLabel =
+    snapshot.status === 'online'
+      ? 'LIVE OPEN-DATA FEED'
+      : snapshot.status === 'partial'
+        ? 'PARTIAL OPEN-DATA FEED'
+        : 'BUNDLED DOSM 2024 DATASET';
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -75,6 +86,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   useEffect(() => {
     const savedTheme = window.localStorage.getItem('banturakyat-visual-theme') as VisualTheme | null;
     if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'contrast') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- theme lives in localStorage, unavailable during SSR
       setVisualTheme(savedTheme);
       return;
     }
@@ -148,15 +160,6 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
     return () => cancelAnimationFrame(animId);
   }, []);
 
-  // Track cursor position
-  useEffect(() => {
-    const moveCursor = (e: MouseEvent) => {
-      setCursorPos({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', moveCursor);
-    return () => window.removeEventListener('mousemove', moveCursor);
-  }, []);
-
   const toggleCategory = (catId: string) => {
     setSelectedCategories(prev =>
       prev.includes(catId) ? prev.filter(c => c !== catId) : [...prev, catId]
@@ -211,6 +214,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- run one initial scan on mount
     handleScan({ preventDefault: () => {} } as any);
   }, []);
 
@@ -290,7 +294,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Gagal daftar alert');
-      setAlertStatus(data?.message || `Reminder encrypted & armed for ${data?.maskedContact || 'your contact'}.`);
+      setAlertStatus(data?.message || `Pendaftaran minat disimpan untuk ${data?.maskedContact || 'contact anda'}.`);
       setAlertContact('');
     } catch (e: any) {
       setAlertStatus(e?.message || 'Gagal daftar alert. Cuba lagi ya.');
@@ -310,14 +314,14 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
       
 
 
-      {/* 2. LIVE CYBER TELEMETRY TICKER BAR */}
+      {/* 2. DATA PROVENANCE TICKER BAR */}
       <div className="bg-[#0c0c0e] border-b border-[#1a1a1f] py-1.5 overflow-hidden text-[11px] font-mono text-[#888891]">
         <div className="animate-marquee whitespace-nowrap flex items-center gap-8">
-          <span>// LIVE DOSM NODE CONNECTED • MALAYSIA NATIONAL MEDIAN INCOME: RM 6,338 • LOW-INCOME CPI INDEX: {snapshot.summary.latestCpiOverall} PT</span>
-          <span className="text-[#ccff00]">● STR 2026 DISBURSEMENT PHASE 3 PREPARATION ACTIVE</span>
-          <span>• SARA RM100/MO CASHLESS GROCERY AID AUTO-CREDITING ACTIVE ON MYKAD</span>
-          <span className="text-[#ccff00]">● MYSALAM B40 FREE HOSPITAL ALLOWANCE RM50/DAY READY</span>
-          <span>// LIVE DOSM NODE CONNECTED • MALAYSIA NATIONAL MEDIAN INCOME: RM 6,338 • LOW-INCOME CPI INDEX: {snapshot.summary.latestCpiOverall} PT</span>
+          <span>{`// SOURCE: ${snapshot.source} • STATUS: ${statusLabel} • LAST SYNC: ${lastSyncLabel}`}</span>
+          <span>NATIONAL MEDIAN HOUSEHOLD INCOME (DOSM {snapshot.summary.nationalMedianYear}): RM {snapshot.summary.nationalMedianIncome.toLocaleString()} • LOW-INCOME CPI: {snapshot.summary.latestCpiOverall} PT</span>
+          <span className="text-[#ccff00]">● ESTIMATES ONLY — NOT AN OFFICIAL GOVERNMENT PORTAL. SEMAK DENGAN AGENSI.</span>
+          <span>STATES COVERED: {snapshot.summary.statesCovered} • LIVE DATASETS: {liveDatasets}/2</span>
+          <span>{`// SOURCE: ${snapshot.source} • STATUS: ${statusLabel} • LAST SYNC: ${lastSyncLabel}`}</span>
         </div>
       </div>
 
@@ -423,14 +427,32 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
               <span className="neon-text">INTELLIGENCE</span>
             </h1>
           </div>
-          <div className="flex items-center gap-2.5 pb-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ccff00] animate-ping" />
-            <span className="text-xs font-mono tracking-widest text-[#888891] uppercase">
-              ● LIVE STREAM ACTIVE (DOSM FEED)
+          <div className="flex flex-col items-start lg:items-end gap-2 pb-2">
+            <div className="flex items-center gap-2.5">
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  snapshot.status === 'online' ? 'bg-[#ccff00] animate-ping' : 'bg-[#ffb020]'
+                }`}
+              />
+              <span className="text-xs font-mono tracking-widest text-[#888891] uppercase">
+                ● {statusLabel}
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-[#52525b] uppercase tracking-widest">
+              {snapshot.source}
             </span>
           </div>
         </div>
       </section>
+
+      {/* DISCLAIMER — this must stay visible: results are estimates, not an official determination. */}
+      <div className="max-w-7xl mx-auto px-6 pt-6">
+        <p className="text-[11px] font-mono text-[#a1a1aa] border border-[#27272d] bg-[#0c0c0e] rounded-lg px-4 py-3 leading-relaxed">
+          <strong className="text-[#ffb020]">Bukan portal rasmi kerajaan.</strong> Kelayakan dan jumlah di sini
+          adalah anggaran berdasarkan kriteria program dalam katalog aplikasi, bukan keputusan rasmi. Sahkan syarat
+          sebenar dengan agensi berkenaan sebelum memohon.
+        </p>
+      </div>
 
       {/* 5. TELEMETRY & SYSTEM HEALTH WIDGET WITH CANVAS ANIMATION */}
       <div id="main-dashboard" className="max-w-7xl mx-auto px-6 py-8" tabIndex={-1}>
@@ -444,10 +466,10 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
             >
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#1f1f24]">
                 <span className="text-xs font-mono tracking-widest text-[#ccff00] uppercase">
-                  // REAL-TIME FEED (SYNC: 14MS)
+                  {'// ELIGIBILITY INPUT'}
                 </span>
                 <span className="text-xs font-mono bg-[#16161a] text-[#a1a1aa] px-3 py-1 rounded border border-[#27272d] flex items-center gap-1.5">
-                  <Lock className="w-3 h-3 text-[#ccff00]" /> ANONYMOUS NODE
+                  <Lock className="w-3 h-3 text-[#ccff00]" /> NO IC / NO LOGIN
                 </span>
               </div>
 
@@ -550,52 +572,45 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
 
               >
                 <span className="text-xs font-mono tracking-widest text-[#888891] uppercase block mb-6">
-                  SYSTEM HEALTH // TELEMETRY
+                  DATA FEED STATUS
                 </span>
 
-                {/* Glowing Circular Gauge with Live Canvas Animation */}
+                {/* Circular gauge: reports real live-dataset coverage, not an invented score */}
                 <div className="relative w-64 h-64 mx-auto flex items-center justify-center my-2">
-                  <canvas ref={canvasRef} width={256} height={256} className="absolute inset-0 pointer-events-none" />
+                  <canvas ref={canvasRef} width={256} height={256} className="absolute inset-0 pointer-events-none" aria-hidden="true" />
                   <div className="flex flex-col items-center justify-center z-10 text-center">
                     <span className="text-5xl font-black font-mono text-[#ccff00] tracking-tight">
-                      98.4<span className="text-2xl">%</span>
+                      {liveCoverage}<span className="text-2xl">%</span>
                     </span>
                     <span className="text-[10px] font-mono tracking-widest text-[#888891] uppercase mt-1">
-                      INTELLIGENCE FLOW
+                      OFFICIAL DATA COVERAGE
                     </span>
                   </div>
                 </div>
 
-                {/* Signal Strength Progress */}
                 <div className="space-y-4 mt-6 pt-6 border-t border-[#1f1f24]">
                   <div>
                     <div className="flex justify-between text-xs font-mono mb-1.5">
-                      <span className="text-[#888891]">SIGNAL STRENGTH</span>
-                      <span className="text-[#ccff00]">-42 dBm</span>
+                      <span className="text-[#888891]">LIVE DATASETS</span>
+                      <span className="text-[#ccff00]">{liveDatasets} / 2</span>
                     </div>
                     <div className="w-full h-1.5 bg-[#1a1a20] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#ccff00] w-[88%]" />
+                      <div className="h-full bg-[#ccff00]" style={{ width: `${liveCoverage}%` }} />
                     </div>
                   </div>
 
-                  {/* Equalizer Bar Activity */}
                   <div className="flex items-center justify-between text-xs font-mono pt-2">
-                    <span className="text-[#888891]">NODE ACTIVITY</span>
-                    <span className="text-[#ccff00]">Active (1,284)</span>
+                    <span className="text-[#888891]">STATES COVERED</span>
+                    <span className="text-[#ccff00]">{snapshot.summary.statesCovered} / 16</span>
                   </div>
-                  <div className="flex items-end gap-1.5 h-6">
-                    <div className="flex-1 bg-[#ccff00] h-[70%]" />
-                    <div className="flex-1 bg-[#ccff00] h-[95%]" />
-                    <div className="flex-1 bg-[#ccff00]/60 h-[40%]" />
-                    <div className="flex-1 bg-[#ccff00] h-[80%]" />
-                    <div className="flex-1 bg-[#ccff00]/40 h-[30%]" />
-                    <div className="flex-1 bg-[#ccff00] h-[100%]" />
-                    <div className="flex-1 bg-[#ccff00] h-[65%]" />
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-[#888891]">PROGRAMS MATCHED</span>
+                    <span className="text-[#ccff00]">{report ? report.qualifiedList.length : '—'}</span>
                   </div>
 
                   <div className="flex justify-between text-xs font-mono pt-3 border-t border-[#1a1a1f] text-[#888891]">
-                    <span>LATENCY: <strong className="text-white">12ms</strong></span>
-                    <span>PACKET LOSS: <strong className="text-white">0.002%</strong></span>
+                    <span>LAST SYNC: <strong className="text-white">{lastSyncLabel}</strong></span>
+                    <span>STATUS: <strong className="text-white">{statusLabel.split(' ')[0]}</strong></span>
                   </div>
                 </div>
               </div>
@@ -607,11 +622,17 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
 
                 >
                   <span className="text-xs font-mono text-[#ccff00] block mb-1">
-                    // DETECTED ELIGIBLE SUBSIDIES ({report.qualifiedList.length} PROGRAMS)
+                    {`// DETECTED ELIGIBLE SUBSIDIES (${report.qualifiedList.length} PROGRAMS)`}
                   </span>
                   <h3 className="text-3xl font-black font-mono text-white">
                     RM {report.totalAnnualQualifiedValue.toLocaleString()} <span className="text-xs text-[#888891] font-normal">/ YR EST.</span>
                   </h3>
+                  {report.dataMode === 'bundled-seed' && (
+                    <p className="mt-2 text-[10px] font-mono text-[#ffb020] leading-relaxed">
+                      Catalogue loaded from bundled seed data (database unavailable) — results may not reflect recent
+                      program changes.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => setActiveTab('docs')}
@@ -654,7 +675,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
         {/* TAB 2: MISSING SUBSIDY FINDER */}
         {activeTab === 'missing' && report && (
           <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-8 max-w-4xl mx-auto neon-border">
-            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">// MISSING SUBSIDY DETECTOR</h2>
+            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">{'// MISSING SUBSIDY DETECTOR'}</h2>
             <p className="text-sm text-[#888891] mt-1">Select subsidies you ALREADY CLAIMED below to uncover money left on the table.</p>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
@@ -682,7 +703,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
             {report.qualifiedList.filter(q => !claimedCodes.includes(q.program.code)).length > 0 && (
               <div className="mt-8 p-6 bg-[#ff003c]/10 border border-[#ff003c]/40 rounded-xl text-[#ff809d]">
                 <h3 className="text-lg font-bold font-mono uppercase">🚨 UNCLAIMED MONEY DETECTED</h3>
-                <p className="text-xs mt-1">You qualify for RM {report.qualifiedList.filter(q => !claimedCodes.includes(q.program.code)).reduce((a,b)=>a+b.estimatedAnnualValue,0).toLocaleString()} per year that you haven't claimed yet!</p>
+                <p className="text-xs mt-1">You qualify for RM {report.qualifiedList.filter(q => !claimedCodes.includes(q.program.code)).reduce((a,b)=>a+b.estimatedAnnualValue,0).toLocaleString()} per year that you have not claimed yet!</p>
               </div>
             )}
           </div>
@@ -695,7 +716,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
               <div className="absolute -right-24 -top-24 w-72 h-72 rounded-full bg-[#ccff00]/10 blur-3xl" />
               <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                 <div>
-                  <span className="text-xs font-mono tracking-[0.35em] text-[#ccff00] uppercase">// WOW MODULE ENABLED</span>
+                  <span className="text-xs font-mono tracking-[0.35em] text-[#ccff00] uppercase">{'// CLAIM AUTOPILOT'}</span>
                   <h2 className="text-4xl sm:text-6xl font-black font-mono uppercase leading-none mt-3">
                     CLAIM <span className="neon-text">AUTOPILOT</span>
                   </h2>
@@ -822,9 +843,10 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
 
               <div className="lg:col-span-4 space-y-6">
                 <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-6 neon-border">
-                  <span className="text-xs font-mono text-[#ccff00] uppercase tracking-widest">Encrypted reminder relay</span>
+                  <span className="text-xs font-mono text-[#ccff00] uppercase tracking-widest">Interest registration</span>
                   <p className="text-xs text-[#888891] mt-2 leading-relaxed">
-                    Simpan contact sebagai SHA-256 hash. App hanya paparkan masked contact — privacy first.
+                    Contact disimpan sebagai hash berkunci; app hanya paparkan versi bertopeng. Peringatan automatik
+                    belum aktif — pendaftaran ini merekodkan minat anda sahaja.
                   </p>
                   <div className="mt-4 flex gap-2">
                     <input
@@ -839,7 +861,7 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
                       disabled={isSavingAlert}
                       className="neon-btn px-4 py-3 rounded-lg font-mono text-xs uppercase"
                     >
-                      {isSavingAlert ? 'Sync...' : 'Arm'}
+                      {isSavingAlert ? 'Saving...' : 'Save'}
                     </button>
                   </div>
                   {alertStatus && <p className="text-xs text-[#a1a1aa] mt-3 leading-relaxed">{alertStatus}</p>}
@@ -897,8 +919,13 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
         {/* TAB 4: OPENDOSM DATA */}
         {activeTab === 'opendosm' && (
           <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-8 max-w-6xl mx-auto neon-border">
-            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">// LIVE MALAYSIA ECONOMIC TELEMETRY</h2>
-            <p className="text-sm text-[#888891] mt-1">Real-time OpenDOSM API household income and inflation metrics.</p>
+            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">{'// MALAYSIA ECONOMIC REFERENCE DATA'}</h2>
+            <p className="text-sm text-[#888891] mt-1">
+              {snapshot.status === 'online'
+                ? 'Live OpenDOSM (api.data.gov.my) household income and inflation data, cached for 5 minutes.'
+                : 'Bundled DOSM 2024 reference data — the live OpenDOSM feed was unavailable at the last sync.'}
+            </p>
+            <p className="text-xs font-mono text-[#52525b] mt-2">Last sync: {lastSyncLabel} · {snapshot.source}</p>
 
             <div className="h-80 w-full mt-8">
               <ResponsiveContainer width="100%" height="100%">
@@ -917,7 +944,8 @@ export default function BantuanClient({ initialSnapshot }: BantuanClientProps) {
         {/* TAB 4: CALENDAR */}
         {activeTab === 'calendar' && report && (
           <div className="bg-[#0c0c0e] border border-[#1f1f24] rounded-2xl p-8 max-w-4xl mx-auto neon-border space-y-4">
-            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">// 2026 DISBURSEMENT TIMELINE</h2>
+            <h2 className="text-2xl font-black font-mono text-[#ccff00] uppercase">{'// 2026 DISBURSEMENT TIMELINE'}</h2>
+            <p className="text-xs font-mono text-[#ffb020] leading-relaxed">{report.calendarNote}</p>
             {report.calendarEvents.map((evt, idx) => (
               <div key={idx} className="p-4 bg-[#121216] border border-[#27272e] rounded-xl flex justify-between items-center font-mono">
                 <div>

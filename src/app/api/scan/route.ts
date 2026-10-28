@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../db/index';
-import { aidPrograms, eligibilityScans } from '../../../db/schema';
+import { aidPrograms, eligibilityScans, AidProgram } from '../../../db/schema';
 import { fetchPasarApiSnapshot } from '../../../lib/pasarapi';
 import { evaluateEligibility, ScanInput } from '../../../lib/aid-engine';
 import { INITIAL_AID_PROGRAMS } from '../../../db/seed-data';
@@ -18,12 +18,13 @@ export async function POST(req: Request) {
     };
 
     const snapshot = await fetchPasarApiSnapshot();
-    let programs: any[] = INITIAL_AID_PROGRAMS as any;
+    // Seed rows are not persisted records, so they lack the generated timestamp columns.
+    let programs: AidProgram[] = INITIAL_AID_PROGRAMS as AidProgram[];
 
     try {
       const db = await getDb();
       programs = await db.select().from(aidPrograms);
-      const report = evaluateEligibility(programs as any, input, snapshot);
+      const report = evaluateEligibility(programs, input, snapshot);
 
       // Record anonymized scan metrics into Postgres / PGlite best-effort
       await db.insert(eligibilityScans).values({
@@ -36,16 +37,16 @@ export async function POST(req: Request) {
         eligibleCount: report.qualifiedList.length,
         totalEstimatedValue: report.totalAnnualQualifiedValue,
         isAnonymous: Boolean(body.isAnonymous ?? true),
-      }).catch((e: any) => console.warn('Best-effort scan metrics logging skipped:', e));
+      }).catch((e: unknown) => console.warn('Best-effort scan metrics logging skipped:', e));
 
-      return NextResponse.json(report);
+      return NextResponse.json({ ...report, dataMode: 'database' });
     } catch (dbErr) {
-      console.warn('Database unavailable or serverless read-only filesystem, evaluating stateless:', dbErr);
-      const report = evaluateEligibility(programs as any, input, snapshot);
-      return NextResponse.json(report);
+      console.warn('Database unavailable or read-only filesystem, evaluating against bundled catalogue:', dbErr);
+      const report = evaluateEligibility(programs, input, snapshot);
+      return NextResponse.json({ ...report, dataMode: 'bundled-seed' });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error processing eligibility scan:', error);
-    return NextResponse.json({ error: 'Failed to process eligibility scan', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to process eligibility scan' }, { status: 500 });
   }
 }

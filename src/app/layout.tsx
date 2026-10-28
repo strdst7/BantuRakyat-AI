@@ -3,7 +3,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'BantuRakyat AI — Pengimbas Bantuan & Subsidi Kerajaan Malaysia',
-  description: 'Pengimbas Bantuan & Subsidi Kerajaan Malaysia (STR, SARA, JKM, Zakat & MySalam) dengan Penjelasan AI Bahasa Melayu / English & Data Live OpenDOSM PasarAPI.',
+  description:
+    'Semak anggaran kelayakan bantuan Malaysia (STR, SARA, JKM, Zakat, MySalam) dengan penjelasan Bahasa Melayu / English. Bukan portal rasmi kerajaan.',
 };
 
 export default function RootLayout({

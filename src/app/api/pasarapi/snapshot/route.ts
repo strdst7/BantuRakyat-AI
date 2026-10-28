@@ -5,7 +5,8 @@ export async function GET() {
   try {
     const snapshot = await fetchPasarApiSnapshot();
     return NextResponse.json(snapshot);
-  } catch (error: any) {
-    return NextResponse.json({ error: 'Failed to fetch PasarAPI snapshot', details: error.message }, { status: 500 });
+  } catch (error) {
+    console.error('Failed to fetch PasarAPI snapshot:', error);
+    return NextResponse.json({ error: 'Failed to fetch PasarAPI snapshot' }, { status: 500 });
   }
 }

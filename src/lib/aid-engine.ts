@@ -45,6 +45,10 @@ export interface EligibilityReport {
   totalAnnualQualifiedValue: number;
   totalAnnualMissingValue: number;
   calendarEvents: CalendarEvent[];
+  /** Payout dates are indicative only — they are not sourced from the live API. */
+  calendarNote: string;
+  /** Where the program catalogue came from for this report. */
+  dataMode?: 'database' | 'bundled-seed';
   documentChecklist: {
     category: string;
     documents: string[];
@@ -267,7 +271,7 @@ export function evaluateEligibility(
     },
   ];
 
-  const scanId = 'BR-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+  const scanId = `BR-${globalThis.crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
   const relativeStanding = input.monthlyIncome < stateProfile.medianIncome
     ? `Bawah Median Negeri (${stateProfile.state})`
@@ -288,6 +292,8 @@ export function evaluateEligibility(
     totalAnnualQualifiedValue,
     totalAnnualMissingValue,
     calendarEvents,
+    calendarNote:
+      'Tarikh bayaran di atas adalah anggaran rujukan, bukan jadual rasmi. Sahkan tarikh sebenar di portal agensi.',
     documentChecklist,
   };
 }

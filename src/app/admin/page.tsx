@@ -32,16 +32,28 @@ export default function AdminPage() {
   const [amountMax, setAmountMax] = useState(1500);
   const [applyUrl, setApplyUrl] = useState('https://www.malaysia.gov.my');
   const [submitting, setSubmitting] = useState(false);
+  const [adminKey, setAdminKey] = useState('');
+  const [keyDraft, setKeyDraft] = useState('');
+  const [authBlocked, setAuthBlocked] = useState(false);
+
+  const adminFetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers);
+    if (adminKey) headers.set('x-admin-key', adminKey);
+    return fetch(input, { ...init, headers });
+  };
 
   const fetchAdminData = async () => {
     setLoading(true);
     try {
       const [progRes, statRes] = await Promise.all([
-        fetch('/api/admin/programs'),
-        fetch('/api/admin/stats'),
+        adminFetch('/api/admin/programs'),
+        adminFetch('/api/admin/stats'),
       ]);
-      if (progRes.ok) {
+      if (progRes.status === 401 || progRes.status === 404) {
+        setAuthBlocked(true);
+      } else if (progRes.ok) {
         setPrograms(await progRes.json());
+        setAuthBlocked(false);
       }
       if (statRes.ok) {
         setStats(await statRes.json());
@@ -54,12 +66,23 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    fetchAdminData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- key lives in sessionStorage, unavailable during SSR
+    setAdminKey(window.sessionStorage.getItem('banturakyat-admin-key') ?? '');
   }, []);
+
+  useEffect(() => {
+    if (adminKey) {
+      window.sessionStorage.setItem('banturakyat-admin-key', adminKey);
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading admin data is the effect's purpose
+    fetchAdminData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminKey]);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem('banturakyat-visual-theme') as VisualTheme | null;
     if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'contrast') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- theme lives in localStorage, unavailable during SSR
       setVisualTheme(savedTheme);
       return;
     }
@@ -76,7 +99,7 @@ export default function AdminPage() {
 
   const handleToggleActive = async (prog: AidProgram) => {
     try {
-      const res = await fetch('/api/admin/programs', {
+      const res = await adminFetch('/api/admin/programs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: prog.id, isActive: !prog.isActive }),
@@ -93,7 +116,7 @@ export default function AdminPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch('/api/admin/programs', {
+      const res = await adminFetch('/api/admin/programs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,6 +201,40 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+
+      {/* Admin key gate */}
+      {authBlocked && (
+        <div className="max-w-xl mx-auto px-4 sm:px-8 mt-8">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setAdminKey(keyDraft.trim());
+            }}
+            className="bg-slate-800/80 border border-amber-500/40 rounded-2xl p-6"
+          >
+            <h2 className="text-sm font-bold text-amber-400 uppercase tracking-wider">Admin key required</h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              This dashboard is write-protected. Enter the <code className="text-amber-300">ADMIN_API_KEY</code> value
+              configured for this deployment. It is kept in this browser session only.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <input
+                type="password"
+                value={keyDraft}
+                onChange={(e) => setKeyDraft(e.target.value)}
+                placeholder="ADMIN_API_KEY"
+                className="min-w-0 flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-sm transition"
+              >
+                Unlock
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div id="admin-dashboard" className="max-w-7xl mx-auto px-4 sm:px-8 mt-8" tabIndex={-1}>

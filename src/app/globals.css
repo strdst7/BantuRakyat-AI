@@ -15,6 +15,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    cursor: default;
   }
 }
 
@@ -65,17 +66,6 @@
   transform: translateY(-2px) scale(1.01);
 }
 
-/* Gleec / Immersive Garden style Drag Cursor */
-.custom-cursor {
-  pointer-events: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9999;
-  transform: translate(-50%, -50%);
-  transition: opacity 0.2s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 /* Interactive ticker animation */
 @keyframes marquee {
   0% { transform: translateX(0%); }
@@ -123,12 +113,6 @@
 .theme-light .neon-btn:hover {
   background: #2f4300 !important;
   box-shadow: 0 0 0 3px rgba(63, 89, 0, 0.18) !important;
-}
-
-.theme-light .custom-cursor {
-  background: rgba(248, 250, 252, 0.92) !important;
-  border-color: #3f5900 !important;
-  color: #3f5900 !important;
 }
 
 .theme-light [class*="bg-[#050505]"],

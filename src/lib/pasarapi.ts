@@ -22,8 +22,11 @@ export interface StatePovertyData {
   year: string;
 }
 
+export type SnapshotStatus = 'online' | 'partial' | 'fallback';
+
 export interface PasarApiSnapshot {
-  status: 'online' | 'cached' | 'fallback';
+  /** 'online' only when every live dataset was fetched and parsed successfully. */
+  status: SnapshotStatus;
   fetchedAt: string;
   source: string;
   stateIncome: StateIncomeData[];
@@ -31,9 +34,12 @@ export interface PasarApiSnapshot {
   statePoverty: StatePovertyData[];
   summary: {
     nationalMedianIncome: number;
+    nationalMedianYear: string;
     highestMedianState: { state: string; amount: number };
     lowestMedianState: { state: string; amount: number };
     latestCpiOverall: number;
+    statesCovered: number;
+    liveDatasets: number;
   };
 }
 
@@ -114,6 +120,8 @@ export async function fetchPasarApiSnapshot(): Promise<PasarApiSnapshot> {
 
     clearTimeout(timeoutId);
 
+    let incomeIsLive = false;
+    let cpiIsLive = false;
     let stateIncome: StateIncomeData[] = FALLBACK_STATE_INCOME;
     if (Array.isArray(incomeJson) && incomeJson.length > 0) {
       const parsed = incomeJson.map((item: any) => ({
@@ -125,6 +133,7 @@ export async function fetchPasarApiSnapshot(): Promise<PasarApiSnapshot> {
 
       if (parsed.length >= 10) {
         stateIncome = parsed;
+        incomeIsLive = true;
       }
     }
 
@@ -146,6 +155,7 @@ export async function fetchPasarApiSnapshot(): Promise<PasarApiSnapshot> {
       });
       if (parsedCpi.length > 0) {
         cpiLowIncome = parsedCpi;
+        cpiIsLive = true;
       }
     }
 
@@ -156,18 +166,30 @@ export async function fetchPasarApiSnapshot(): Promise<PasarApiSnapshot> {
     const lowest = stateIncome[stateIncome.length - 1] || FALLBACK_STATE_INCOME[FALLBACK_STATE_INCOME.length - 1];
     const overallCpi = cpiLowIncome.find(c => c.division === 'overall')?.index || 136.7;
 
+    const liveDatasets = Number(incomeIsLive) + Number(cpiIsLive);
+    const status: SnapshotStatus =
+      liveDatasets === 2 ? 'online' : liveDatasets === 1 ? 'partial' : 'fallback';
+
     const snapshot: PasarApiSnapshot = {
-      status: 'online',
+      status,
       fetchedAt: new Date().toISOString(),
-      source: 'PasarAPI / OpenDOSM Live API (data.gov.my)',
+      source:
+        status === 'online'
+          ? 'OpenDOSM live API (api.data.gov.my)'
+          : status === 'partial'
+            ? 'OpenDOSM live API (partial) + bundled DOSM 2024 data'
+            : 'Bundled DOSM 2024 dataset (live API unavailable)',
       stateIncome,
       cpiLowIncome,
       statePoverty: FALLBACK_STATE_POVERTY,
       summary: {
-        nationalMedianIncome: 6338, // Malaysia national median 2024 DOSM
+        nationalMedianIncome: 6338, // Malaysia national median, DOSM 2024
+        nationalMedianYear: '2024',
         highestMedianState: { state: highest.state, amount: highest.incomeMedian },
         lowestMedianState: { state: lowest.state, amount: lowest.incomeMedian },
         latestCpiOverall: overallCpi,
+        statesCovered: stateIncome.length,
+        liveDatasets,
       },
     };
 
@@ -187,9 +209,12 @@ export async function fetchPasarApiSnapshot(): Promise<PasarApiSnapshot> {
       statePoverty: FALLBACK_STATE_POVERTY,
       summary: {
         nationalMedianIncome: 6338,
+        nationalMedianYear: '2024',
         highestMedianState: { state: highest.state, amount: highest.incomeMedian },
         lowestMedianState: { state: lowest.state, amount: lowest.incomeMedian },
         latestCpiOverall: 136.7,
+        statesCovered: FALLBACK_STATE_INCOME.length,
+        liveDatasets: 0,
       },
     };
   }

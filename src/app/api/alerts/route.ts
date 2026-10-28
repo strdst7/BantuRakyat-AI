@@ -3,6 +3,9 @@ import crypto from 'crypto';
 import { getDb } from '../../../db/index';
 import { alertSubscriptions } from '../../../db/schema';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^\+?[0-9\s-]{7,15}$/;
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -13,12 +16,23 @@ export async function POST(req: Request) {
     const notifyDeadlines = Boolean(body.notifyDeadlines ?? true);
     const notifyNewPrograms = Boolean(body.notifyNewPrograms ?? true);
 
-    if (!contact) {
-      return NextResponse.json({ error: 'Sila masukkan nombor telefon atau e-mel yang sah.' }, { status: 400 });
+    const isValidContact =
+      contactType === 'email' ? EMAIL_PATTERN.test(contact) : PHONE_PATTERN.test(contact);
+
+    if (!contact || !isValidContact) {
+      return NextResponse.json(
+        { error: 'Sila masukkan nombor telefon atau e-mel yang sah.' },
+        { status: 400 },
+      );
     }
 
-    // Privacy protection: Hash the actual contact info using SHA-256
-    const contactHash = crypto.createHash('sha256').update(contact.toLowerCase()).digest('hex');
+    // Keyed hash so stored values cannot be reversed with a precomputed table.
+    // Set ALERT_HASH_SECRET in production; the fallback keeps local dev working.
+    const secret = process.env.ALERT_HASH_SECRET || 'banturakyat-dev-only-secret';
+    const contactHash = crypto
+      .createHmac('sha256', secret)
+      .update(contact.toLowerCase())
+      .digest('hex');
 
     // Create masked display string for confirmation
     let maskedContact = contact;
@@ -48,11 +62,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Berjaya mendaftar notifikasi bantuan! Data anda dilindungi sepenuhnya secara sulit (SHA-256 Hash). Peringatan akan dihantar ke ${maskedContact}.`,
+      notificationsLive: false,
+      message: `Pendaftaran minat disimpan untuk ${maskedContact}. Peringatan automatik belum dihantar — saluran notifikasi masih dalam pembangunan.`,
       maskedContact,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error recording alert subscription:', error);
-    return NextResponse.json({ error: 'Gagal mendaftar notifikasi', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal mendaftar notifikasi' }, { status: 500 });
   }
 }
